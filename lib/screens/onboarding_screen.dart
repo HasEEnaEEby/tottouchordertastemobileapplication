@@ -1,42 +1,110 @@
 import 'package:flutter/material.dart';
-import 'package:tottouchordertastemobileapplication/screens/signin_screen.dart';
+import 'dart:math';
 
-class OnboardingPage extends StatefulWidget {
-  const OnboardingPage({super.key});
+class OnboardingScreen extends StatefulWidget {
+  const OnboardingScreen({super.key});
 
   @override
-  State<OnboardingPage> createState() => _OnboardingPageState();
+  // ignore: library_private_types_in_public_api
+  _OnboardingScreenState createState() => _OnboardingScreenState();
 }
 
-class _OnboardingPageState extends State<OnboardingPage> {
-  final PageController _controller = PageController();
+class _OnboardingScreenState extends State<OnboardingScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  final PageController _pageController = PageController();
   int _currentPage = 0;
 
   final List<Map<String, String>> _onboardingData = [
     {
-      "title": "Seamless Ordering",
-      "description": "Place orders effortlessly without waiting for a waiter or interacting with bots.",
-      "image": "assets/images/ordering.png"
+      'title': 'Welcome to TOT',
+      'description': 'Touch, Order, Taste like never before!',
+      'image': 'assets/images/AppLogo.png',
     },
     {
-      "title": "Personalized Experience",
-      "description": "Choose your dining mode: Guest, Customer, or Restaurant for tailored features.",
-      "image": "assets/images/personalized.png"
+      'title': 'Easy Ordering',
+      'description': 'Seamlessly place orders from your table.',
+      'image': 'assets/images/ordering.png',
     },
     {
-      "title": "Food Recommendations",
-      "description": "Get recommendations based on your preferences and enjoy your favorite meals.",
-      "image": "assets/images/recommendation.png"
+      'title': 'Personalized Experience',
+      'description': 'Tailored menus and recommendations just for you.',
+      'image': 'assets/images/personalized.png',
     },
   ];
+
+  final List<String> _foodIcons = [
+    '🍔',
+    '🍕',
+    '🍎',
+    '🍣',
+    '🍩',
+    '🍪',
+    '🥗',
+    '🍿',
+    '🍤',
+    '🍜'
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(seconds: 10), // Slower animation speed
+      vsync: this,
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
+          // Gradient Background
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.orange, Colors.pink],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+
+          // Animated Food Rain
+          AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              return Stack(
+                children: List.generate(_foodIcons.length, (index) {
+                  final x =
+                      Random().nextDouble() * MediaQuery.of(context).size.width;
+                  final y = (_controller.value + index * 0.1) %
+                      1.0 *
+                      MediaQuery.of(context).size.height;
+                  return Positioned(
+                    left: x,
+                    top: y,
+                    child: Text(
+                      _foodIcons[index],
+                      style: const TextStyle(fontSize: 30),
+                    ),
+                  );
+                }),
+              );
+            },
+          ),
+
+          // PageView for Onboarding Screens
           PageView.builder(
-            controller: _controller,
+            controller: _pageController,
             onPageChanged: (index) {
               setState(() {
                 _currentPage = index;
@@ -44,134 +112,109 @@ class _OnboardingPageState extends State<OnboardingPage> {
             },
             itemCount: _onboardingData.length,
             itemBuilder: (context, index) {
-              return OnboardingContent(
-                title: _onboardingData[index]["title"]!,
-                description: _onboardingData[index]["description"]!,
-                image: _onboardingData[index]["image"]!,
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Circular Image
+                  CircleAvatar(
+                    radius: 100,
+                    backgroundColor: Colors.orange.shade100,
+                    child: ClipOval(
+                      child: Image.asset(
+                        _onboardingData[index]['image']!,
+                        fit: BoxFit.cover,
+                        height: 180,
+                        width: 180,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+
+                  // Title
+                  Text(
+                    _onboardingData[index]['title']!,
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+
+                  // Description
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                    child: Text(
+                      _onboardingData[index]['description']!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ),
+                ],
               );
             },
           ),
+
+          // Bottom Navigation with Skip and Next/Done Button
           Positioned(
-            bottom: 30,
+            bottom: 50,
             left: 20,
-            child: _currentPage < _onboardingData.length - 1
-                ? TextButton(
-                    onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const SignInScreen(),
-                        ),
-                      );
-                    },
-                    child: const Text(
-                      'Skip',
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
-                    ),
-                  )
-                : const SizedBox.shrink(),
-          ),
-          Positioned(
-            bottom: 30,
             right: 20,
-            child: ElevatedButton(
-              onPressed: () {
-                if (_currentPage == _onboardingData.length - 1) {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const SignInScreen(),
-                    ),
-                  );
-                } else {
-                  _controller.nextPage(
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-              ),
-              child: Text(
-                _currentPage == _onboardingData.length - 1
-                    ? "Get Started"
-                    : "Next",
-                style: const TextStyle(fontSize: 16, color: Colors.white),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 20,
-            left: MediaQuery.of(context).size.width / 2 - 40,
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                _onboardingData.length,
-                (index) => buildDot(index, context),
-              ),
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Indicator Dots
+                Row(
+                  children: List.generate(
+                    _onboardingData.length,
+                    (index) => AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      margin: const EdgeInsets.symmetric(horizontal: 5),
+                      height: 12,
+                      width: _currentPage == index ? 24 : 12,
+                      decoration: BoxDecoration(
+                        color: _currentPage == index
+                            ? Colors.orange
+                            : Colors.grey.shade400,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Skip or Next/Done Button
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 12),
+                    backgroundColor: Colors.deepOrange,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                  onPressed: () {
+                    if (_currentPage == _onboardingData.length - 1) {
+                      Navigator.pushNamed(context, '/role-selection');
+                    } else {
+                      _pageController.nextPage(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    }
+                  },
+                  child: Text(
+                    _currentPage == _onboardingData.length - 1
+                        ? 'Done'
+                        : 'Next',
+                    style: const TextStyle(fontSize: 18),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget buildDot(int index, BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      margin: const EdgeInsets.symmetric(horizontal: 5),
-      height: 10,
-      width: _currentPage == index ? 20 : 10,
-      decoration: BoxDecoration(
-        color: _currentPage == index ? Colors.orange : Colors.grey,
-        borderRadius: BorderRadius.circular(5),
-      ),
-    );
-  }
-}
-
-class OnboardingContent extends StatelessWidget {
-  final String title;
-  final String description;
-  final String image;
-
-  const OnboardingContent({
-    super.key,
-    required this.title,
-    required this.description,
-    required this.image,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Image.asset(image, height: 250),
-          const SizedBox(height: 30),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.orange,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 20),
-          Text(
-            description,
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[700],
-            ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),

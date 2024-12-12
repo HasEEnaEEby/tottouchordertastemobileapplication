@@ -1,12 +1,6 @@
 import 'package:flutter/material.dart';
 
-class AppConstants {
-  static const Color logoStartColor = Colors.orange;
-  static const Color logoEndColor = Colors.green;
-  static const double logoSize = 120.0;
-  static const TextStyle logoTextStyle = TextStyle(
-    fontSize: 80,
-    fontWeight: FontWeight.bold,
-    color: Colors.white,
-  );
+class AppColors {
+  static const softOrange = Color(0xFFFFA726);
+  static const limeGreen = Color(0xFFCDDC39);
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tottouchordertastemobileapplication/screens/flash_screen.dart';
+import 'package:tottouchordertastemobileapplication/screens/onboarding_screen.dart';
+import 'package:tottouchordertastemobileapplication/screens/role_selection_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -16,7 +18,13 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.orange,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: const FlashScreen(),
+      // Initial route points to FlashScreen
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const FlashScreen(),
+        '/onboarding': (context) => const OnboardingScreen(),
+        '/role-selection': (context) => RoleSelectionScreen(),
+      },
     );
   }
 }
