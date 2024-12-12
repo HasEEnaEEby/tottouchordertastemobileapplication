@@ -2,20 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:tottouchordertastemobileapplication/screens/signin_screen.dart';
-import 'package:tottouchordertastemobileapplication/screens/dashboard_screen.dart'; // Assuming you have a DashboardScreen
+import 'package:tottouchordertastemobileapplication/screens/dashboard_screen.dart';
 
-// Convert the RoleSelectionScreen to StatefulWidget to manage hover state and interaction
 class RoleSelectionScreen extends StatefulWidget {
   const RoleSelectionScreen({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
   _RoleSelectionScreenState createState() => _RoleSelectionScreenState();
 }
 
 class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
-  bool _isHovered = false;
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -23,54 +19,38 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
         title: Text(
           'Select Your Role',
           style: GoogleFonts.poppins(
-            fontSize: 22,
-            fontWeight: FontWeight.w600,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
         ),
         centerTitle: true,
         backgroundColor: Colors.deepOrangeAccent,
-        elevation: 0,
+        elevation: 4,
       ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 20),
               Text(
-                "Choose your role to start your tasty journey!",
+                "Choose your role to start your journey!",
                 style: GoogleFonts.poppins(
                   fontSize: 20,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
                   color: Colors.orangeAccent,
                 ),
                 textAlign: TextAlign.center,
               ).animate().fadeIn(duration: 800.ms).slideY(begin: -0.2),
               const SizedBox(height: 30),
               Expanded(
-                child: ListView.builder(
+                child: ListView(
                   padding: const EdgeInsets.only(bottom: 16),
-                  itemCount: roles.length,
-                  itemBuilder: (context, index) {
-                    final role = roles[index];
-                    return _buildRoleCard(
-                      context,
-                      title: role['title'] as String,
-                      icon: role['icon'] as IconData,
-                      backgroundColor: role['color'] as Color,
-                      onTap: role['action'] != null
-                          ? () => (role['action'] as Function)(context)
-                          : () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => role['route'] as Widget,
-                                ),
-                              );
-                            },
-                    ).animate().fadeIn(duration: (800 + index * 100).ms)
-                      ..slideY(begin: -0.2);
-                  },
+                  children: roles.map((role) {
+                    return _buildRoleCard(context, role);
+                  }).toList(),
                 ),
               ),
             ],
@@ -80,93 +60,86 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
     );
   }
 
-  Widget _buildRoleCard(
-    BuildContext context, {
-    required String title,
-    required IconData icon,
-    required Color backgroundColor,
-    required VoidCallback onTap,
-  }) {
-    return MouseRegion(
-      onEnter: (_) => _hoverAnimation(true),
-      onExit: (_) => _hoverAnimation(false),
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          margin: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: _isHovered
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      spreadRadius: 5,
-                      blurRadius: 10,
-                      offset: const Offset(0, 6),
-                    ),
-                  ]
-                : [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.15),
-                      spreadRadius: 3,
-                      blurRadius: 6,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  icon,
-                  size: _isHovered ? 70 : 60,
-                  color: Colors.deepOrangeAccent,
-                ).animate().scale(duration: 600.ms),
-                const SizedBox(height: 12),
-                Text(
-                  title,
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-              ],
+  Widget _buildRoleCard(BuildContext context, Map<String, dynamic> role) {
+    return GestureDetector(
+      onTap: () {
+        if (role['action'] != null) {
+          role['action'](context);
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => role['route'] as Widget),
+          );
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        margin: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: role['color'],
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              spreadRadius: 4,
+              blurRadius: 8,
+              offset: const Offset(0, 6),
             ),
-          ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            CircleAvatar(
+              radius: 30,
+              backgroundColor: Colors.deepOrangeAccent.withOpacity(0.1),
+              child: Icon(
+                role['icon'],
+                size: 40,
+                color: Colors.deepOrangeAccent,
+              ),
+            ).animate().scale(duration: 400.ms),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Text(
+                role['title'],
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+            const Icon(
+              Icons.arrow_forward_ios,
+              size: 20,
+              color: Colors.deepOrangeAccent,
+            ),
+          ],
         ),
       ),
     );
-  }
-
-  void _hoverAnimation(bool isHovered) {
-    setState(() {
-      _isHovered = isHovered;
-    });
   }
 }
 
 final roles = [
   {
-    'title': 'User',
+    'title': 'Customer',
     'icon': Icons.person_outline,
-    'color': Colors.orange.shade200,
+    'color': Colors.orange.shade100,
     'route': const SignInScreen(),
   },
   {
     'title': 'Restaurant',
-    'icon': Icons.restaurant,
-    'color': Colors.red.shade200,
+    'icon': Icons.restaurant_menu,
+    'color': Colors.red.shade100,
     'route': const SignInScreen(),
   },
   {
     'title': 'Guest',
     'icon': Icons.fastfood_outlined,
-    'color': Colors.green.shade200,
+    'color': Colors.green.shade100,
     'action': (BuildContext context) {
       _showGuestLoginPopup(context);
     },
@@ -204,14 +177,12 @@ void _showGuestLoginPopup(BuildContext context) {
                   borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(
                     color: Colors.orangeAccent,
-                    width: 1.5,
                   ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(
                     color: Colors.orangeAccent,
-                    width: 2.0,
                   ),
                 ),
               ),
@@ -237,16 +208,13 @@ void _showGuestLoginPopup(BuildContext context) {
             ),
             onPressed: () {
               if (tableNumberController.text.isNotEmpty) {
-                Navigator.pop(context); // Close the dialog
-                // Navigate to DashboardScreen after closing dialog
+                Navigator.pop(context);
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const DashboardScreen(),
-                  ),
+                      builder: (context) => const DashboardScreen()),
                 );
               } else {
-                // Show an error or validation message if no table number is entered
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
