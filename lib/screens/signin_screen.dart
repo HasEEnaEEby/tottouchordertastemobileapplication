@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class SignInScreen extends StatefulWidget {
-  const SignInScreen({super.key});
+  final String role;
+
+  const SignInScreen({super.key, required this.role});
 
   @override
   // ignore: library_private_types_in_public_api
@@ -9,121 +12,90 @@ class SignInScreen extends StatefulWidget {
 }
 
 class _SignInScreenState extends State<SignInScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController =
-      TextEditingController();
-  final TextEditingController _addressController = TextEditingController();
-  final TextEditingController _operatingHoursController =
-      TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _fullNameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
+  String? _selectedPaymentMethod;
 
-  String _selectedRole = 'Customer'; // Default role
-  String? _restaurantType;
+  final _formKey = GlobalKey<FormState>();
+
+  // Email Validation
+  String? _validateEmail(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter an email';
+    }
+    String pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$';
+    RegExp regex = RegExp(pattern);
+    if (!regex.hasMatch(value)) {
+      return 'Please enter a valid email address';
+    }
+    return null;
+  }
+
+  // Password Validation
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter a password';
+    } else if (value.length < 6) {
+      return 'Password must be at least 6 characters';
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        title: const Text('Sign In'),
+        backgroundColor: Colors.orange,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.deepOrange),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
+        centerTitle: true,
       ),
-      body: SingleChildScrollView(
+      body: Container(
+        width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 20.0),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFFFFE0B2),
+              Color(0xFFFFCC80),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
         child: Form(
           key: _formKey,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Role Selection
               const Text(
-                'Sign Up As',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                'Sign In',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 10),
-              DropdownButtonFormField<String>(
-                value: _selectedRole,
-                items: ['Customer', 'Restaurant']
-                    .map((role) =>
-                        DropdownMenuItem(value: role, child: Text(role)))
-                    .toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedRole = value!;
-                  });
-                },
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: Colors.orange.shade100,
-                  border: const OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(12)),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Shared Fields
-              if (_selectedRole == 'Customer' ||
-                  _selectedRole == 'Restaurant') ...[
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Name',
-                    filled: true,
-                    fillColor: Color.fromARGB(255, 241, 130, 96),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(12)),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your name';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 15),
-              ],
+              const SizedBox(height: 30),
               TextFormField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  filled: true,
-                  fillColor: Color.fromARGB(255, 241, 130, 96),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(12)),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
+                controller: _fullNameController,
+                decoration: const InputDecoration(labelText: 'Full Name'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your email';
+                    return 'Please enter your full name';
                   }
                   return null;
                 },
               ),
-              const SizedBox(height: 15),
+              const SizedBox(height: 20),
+              TextFormField(
+                controller: _emailController,
+                decoration: const InputDecoration(labelText: 'Email'),
+                validator: _validateEmail,
+              ),
+              const SizedBox(height: 20),
               TextFormField(
                 controller: _phoneController,
-                decoration: const InputDecoration(
-                  labelText: 'Phone Number',
-                  filled: true,
-                  fillColor: Color.fromARGB(255, 241, 130, 96),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(12)),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
+                decoration: const InputDecoration(labelText: 'Phone Number'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your phone number';
@@ -131,120 +103,76 @@ class _SignInScreenState extends State<SignInScreen> {
                   return null;
                 },
               ),
-              const SizedBox(height: 15),
-
-              // Password Fields
+              const SizedBox(height: 20),
               TextFormField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Password',
-                  filled: true,
-                  fillColor: Color.fromARGB(255, 241, 130, 96),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(12)),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
+                controller: _addressController,
+                decoration: const InputDecoration(labelText: 'Address'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your password';
-                  }
-                  if (value.length < 6) {
-                    return 'Password must be at least 6 characters';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 15),
-              TextFormField(
-                controller: _confirmPasswordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Confirm Password',
-                  filled: true,
-                  fillColor: Color.fromARGB(255, 241, 130, 96),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(12)),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-                validator: (value) {
-                  if (value != _passwordController.text) {
-                    return 'Passwords do not match';
+                    return 'Please enter your address';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 20),
-
-              // Additional Fields for Restaurants
-              if (_selectedRole == 'Restaurant') ...[
-                TextFormField(
-                  controller: _addressController,
-                  decoration: const InputDecoration(
-                    labelText: 'Address',
-                    filled: true,
-                    fillColor: Color.fromARGB(255, 241, 130, 96),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(12)),
-                      borderSide: BorderSide.none,
-                    ),
+              DropdownButtonFormField<String>(
+                value: _selectedPaymentMethod,
+                hint: const Text('Preferred Payment Method'),
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _selectedPaymentMethod = newValue;
+                  });
+                },
+                items: const [
+                  DropdownMenuItem(
+                    value: 'Credit Card',
+                    child: Text('Credit Card'),
                   ),
-                ),
-                const SizedBox(height: 15),
-                TextFormField(
-                  controller: _operatingHoursController,
-                  decoration: const InputDecoration(
-                    labelText: 'Operating Hours',
-                    filled: true,
-                    fillColor: Color.fromARGB(255, 241, 130, 96),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(12)),
-                      borderSide: BorderSide.none,
-                    ),
+                  DropdownMenuItem(
+                    value: 'Debit Card',
+                    child: Text('Debit Card'),
                   ),
-                ),
-                const SizedBox(height: 15),
-                DropdownButtonFormField<String>(
-                  value: _restaurantType,
-                  items: ['Fine Dining', 'Fast Food', 'Cafe']
-                      .map((type) =>
-                          DropdownMenuItem(value: type, child: Text(type)))
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _restaurantType = value!;
-                    });
-                  },
-                  decoration: const InputDecoration(
-                    labelText: 'Restaurant Type',
-                    filled: true,
-                    fillColor: Color.fromARGB(255, 241, 130, 96),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(12)),
-                      borderSide: BorderSide.none,
-                    ),
+                  DropdownMenuItem(
+                    value: 'PayPal',
+                    child: Text('PayPal'),
                   ),
-                ),
-              ],
-
+                ],
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please select a payment method';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 20),
+              TextFormField(
+                controller: _passwordController,
+                decoration: const InputDecoration(labelText: 'Password'),
+                obscureText: true,
+                validator: _validatePassword,
+              ),
               const SizedBox(height: 20),
               ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
-                  backgroundColor: Colors.orange,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                ),
                 onPressed: () {
                   if (_formKey.currentState?.validate() ?? false) {
-                    // Proceed to next steps based on the role
+                    Navigator.pushReplacementNamed(context, '/dashboard');
                   }
                 },
-                child: const Text('Sign Up'),
+                child: const Text('Sign In'),
+              ),
+              const SizedBox(height: 10),
+              GestureDetector(
+                onTap: () {
+                  Navigator.pushNamed(context, '/login');
+                },
+                child: const Text(
+                  "Already have an account? Log In",
+                  style: TextStyle(
+                    color: Colors.blue,
+                    fontSize: 14,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
               ),
             ],
           ),

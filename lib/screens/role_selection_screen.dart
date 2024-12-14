@@ -1,8 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:tottouchordertastemobileapplication/screens/signin_screen.dart';
-import 'package:tottouchordertastemobileapplication/screens/dashboard_screen.dart';
 
 class RoleSelectionScreen extends StatefulWidget {
   const RoleSelectionScreen({super.key});
@@ -12,226 +8,186 @@ class RoleSelectionScreen extends StatefulWidget {
 }
 
 class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
+  final TextEditingController _tableController = TextEditingController();
+
+  void _navigateToSignIn(String role) {
+    Navigator.pushNamed(context, '/signin',
+        arguments: role); // Pass the role to SignInScreen
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'Select Your Role',
-          style: GoogleFonts.poppins(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
+        title: const Text('Select Your Role'),
+        backgroundColor: Colors.orange,
+        elevation: 0,
+        centerTitle: true,
+      ),
+      body: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFFFFE0B2),
+              Color(0xFFFFCC80),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
         ),
-        centerTitle: true,
-        backgroundColor: Colors.deepOrangeAccent,
-        elevation: 4,
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 20),
-              Text(
-                "Choose your role to start your journey!",
-                style: GoogleFonts.poppins(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.orangeAccent,
-                ),
-                textAlign: TextAlign.center,
-              ).animate().fadeIn(duration: 800.ms).slideY(begin: -0.2),
-              const SizedBox(height: 30),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  children: roles.map((role) {
-                    return _buildRoleCard(context, role);
-                  }).toList(),
-                ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Who are you?',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.brown[800],
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 30),
+            // Role Selection Cards
+            RoleCard(
+              title: 'I am a Customer',
+              description: 'Order your favorite food and enjoy!',
+              icon: Icons.person,
+              onPressed: () {
+                _navigateToSignIn('Customer'); // Pass 'Customer' role
+              },
+            ),
+            const SizedBox(height: 20),
+            RoleCard(
+              title: 'I am a Restaurant',
+              description: 'Manage your restaurant orders efficiently.',
+              icon: Icons.restaurant_menu,
+              onPressed: () {
+                _navigateToSignIn('Restaurant'); // Pass 'Restaurant' role
+              },
+            ),
+            const SizedBox(height: 20),
+            RoleCard(
+              title: 'I am a Guest',
+              description: 'Quickly order without signing in.',
+              icon: Icons.fastfood,
+              onPressed: () {
+                _showTableNumberDialog(); // Show table number input for guest
+              },
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildRoleCard(BuildContext context, Map<String, dynamic> role) {
-    return GestureDetector(
-      onTap: () {
-        if (role['action'] != null) {
-          role['action'](context);
-        } else {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => role['route'] as Widget),
-          );
-        }
+  // Function to show the table number input dialog
+  void _showTableNumberDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Enter Table Number'),
+          content: TextField(
+            controller: _tableController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(hintText: 'Table Number'),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Done'),
+              onPressed: () {
+                _navigateToSignIn(
+                    'Guest'); // Navigate to Guest role after table input
+              },
+            ),
+          ],
+        );
       },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        margin: const EdgeInsets.symmetric(vertical: 10),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: role['color'],
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.15),
-              spreadRadius: 4,
-              blurRadius: 8,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundColor: Colors.deepOrangeAccent.withOpacity(0.1),
-              child: Icon(
-                role['icon'],
-                size: 40,
-                color: Colors.deepOrangeAccent,
-              ),
-            ).animate().scale(duration: 400.ms),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Text(
-                role['title'],
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-            ),
-            const Icon(
-              Icons.arrow_forward_ios,
-              size: 20,
-              color: Colors.deepOrangeAccent,
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
 
-final roles = [
-  {
-    'title': 'Customer',
-    'icon': Icons.person_outline,
-    'color': Colors.orange.shade100,
-    'route': const SignInScreen(),
-  },
-  {
-    'title': 'Restaurant',
-    'icon': Icons.restaurant_menu,
-    'color': Colors.red.shade100,
-    'route': const SignInScreen(),
-  },
-  {
-    'title': 'Guest',
-    'icon': Icons.fastfood_outlined,
-    'color': Colors.green.shade100,
-    'action': (BuildContext context) {
-      _showGuestLoginPopup(context);
-    },
-  },
-];
+// Custom Card Widget
+class RoleCard extends StatelessWidget {
+  final String title;
+  final String description;
+  final IconData icon;
+  final VoidCallback onPressed;
 
-void _showGuestLoginPopup(BuildContext context) {
-  final TextEditingController tableNumberController = TextEditingController();
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        shape: RoundedRectangleBorder(
+  const RoleCard({
+    super.key,
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        padding: const EdgeInsets.all(20.0),
+        decoration: BoxDecoration(
+          color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-        ),
-        title: Text(
-          'Guest Login',
-          style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Enter your table number to proceed:',
-              style: GoogleFonts.poppins(fontSize: 16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: tableNumberController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: 'Table Number',
-                hintText: 'e.g., 101',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(
-                    color: Colors.orangeAccent,
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12.0),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                color: Colors.orange,
+                size: 32,
+              ),
+            ),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
                   ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(
-                    color: Colors.orangeAccent,
+                  const SizedBox(height: 5),
+                  Text(
+                    description,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[700],
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.poppins(fontSize: 16),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.deepOrangeAccent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            onPressed: () {
-              if (tableNumberController.text.isNotEmpty) {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const DashboardScreen()),
-                );
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Please enter a valid table number.',
-                      style: GoogleFonts.poppins(),
-                    ),
-                  ),
-                );
-              }
-            },
-            child: Text(
-              'Proceed',
-              style: GoogleFonts.poppins(fontSize: 16),
-            ),
-          ),
-        ],
-      );
-    },
-  );
+      ),
+    );
+  }
 }

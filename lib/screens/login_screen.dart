@@ -1,173 +1,158 @@
 import 'package:flutter/material.dart';
-import 'package:tottouchordertastemobileapplication/screens/dashboard_screen.dart';
+import 'package:flutter/services.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
   _LoginScreenState createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _formKey =
-      GlobalKey<FormState>(); // Form key to validate the form fields
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  String? _selectedRole;
+  final _formKey = GlobalKey<FormState>();
 
-  String? _emailError;
-  String? _passwordError;
+  // Function to validate email format
+  String? _validateEmail(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter an email';
+    }
+    String pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$';
+    RegExp regex = RegExp(pattern);
+    if (!regex.hasMatch(value)) {
+      return 'Please enter a valid email address';
+    }
+    return null;
+  }
+
+  // Function to validate password length
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter a password';
+    } else if (value.length < 6) {
+      return 'Password must be at least 6 characters';
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        title: const Text('Login'),
+        backgroundColor: Colors.orange,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.deepOrange),
-          onPressed: () {
-            Navigator.pop(context); // Go back to the previous screen
-          },
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Image.asset(
-              'assets/images/AppLogo.png',
-              height: 30,
-            ),
-          ),
-        ],
+        centerTitle: true,
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // App Logo
-                  CircleAvatar(
-                    radius: 80,
-                    backgroundColor: Colors.orange.shade100,
-                    child: ClipOval(
-                      child: Image.asset(
-                        'assets/images/AppLogo.png',
-                        fit: BoxFit.cover,
-                        height: 160,
-                        width: 160,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-
-                  // Email Input Field
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      labelStyle: TextStyle(color: Colors.black87),
-                      filled: true,
-                      fillColor: Color.fromARGB(255, 166, 96, 52),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(12)),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding:
-                          EdgeInsets.symmetric(vertical: 18, horizontal: 15),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your email';
-                      }
-                      final emailRegex = RegExp(
-                          r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
-                      if (!emailRegex.hasMatch(value)) {
-                        return 'Enter a valid email address';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 15),
-
-                  // Password Input Field
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Password',
-                      labelStyle: TextStyle(color: Colors.black87),
-                      filled: true,
-                      fillColor: Color.fromARGB(255, 166, 96, 52),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(12)),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding:
-                          EdgeInsets.symmetric(vertical: 18, horizontal: 15),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your password';
-                      }
-                      if (value.length < 6) {
-                        return 'Password must be at least 6 characters';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 25),
-
-                  // Login Button
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 50, vertical: 15),
-                      backgroundColor: const Color.fromARGB(255, 241, 130, 96),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      elevation: 5,
-                    ),
-                    onPressed: () {
-                      if (_formKey.currentState?.validate() ?? false) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => const DashboardScreen()),
-                        );
-                      }
-                    },
-                    child: const Text(
-                      'Log In',
-                      style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black),
-                    ),
-                  ),
-                  const SizedBox(height: 25),
-
-                  // Sign Up Text Button
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/sign-in');
-                    },
-                    child: const Text(
-                      'Don\'t have an account? Sign Up',
-                      style: TextStyle(
-                          color: Color.fromARGB(255, 100, 30, 8), fontSize: 16),
-                    ),
-                  ),
-                ],
+      body: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFFFFE0B2),
+              Color(0xFFFFCC80),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                'Login',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
-            ),
+              const SizedBox(height: 30),
+              TextFormField(
+                controller: _emailController,
+                decoration: const InputDecoration(labelText: 'Email'),
+                validator: _validateEmail,
+              ),
+              const SizedBox(height: 20),
+              TextFormField(
+                controller: _passwordController,
+                decoration: const InputDecoration(labelText: 'Password'),
+                obscureText: true,
+                validator: _validatePassword,
+              ),
+              const SizedBox(height: 20),
+              DropdownButtonFormField<String>(
+                hint: const Text('Select Role'),
+                value: _selectedRole,
+                onChanged: (String? newRole) {
+                  setState(() {
+                    _selectedRole = newRole;
+                  });
+                },
+                items: <String>['Customer', 'Restaurant', 'Guest']
+                    .map<DropdownMenuItem<String>>((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  if (_formKey.currentState?.validate() ?? false) {
+                    if (_selectedRole != null) {
+                      Navigator.pushReplacementNamed(
+                        context,
+                        '/dashboard',
+                        arguments: _selectedRole,
+                      );
+                    } else {
+                      _showErrorDialog('Please select a role');
+                    }
+                  }
+                },
+                child: const Text('Login'),
+              ),
+              const SizedBox(height: 10),
+              GestureDetector(
+                onTap: () {
+                  Navigator.pushNamed(context, '/signin');
+                },
+                child: const Text(
+                  "Don't have an account? Sign Up",
+                  style: TextStyle(
+                    color: Colors.blue,
+                    fontSize: 14,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
+    );
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Error'),
+          content: Text(message),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
     );
   }
 }
