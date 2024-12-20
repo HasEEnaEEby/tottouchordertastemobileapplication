@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
 import 'package:tottouchordertastemobileapplication/screens/onboarding_screen.dart';
+import 'package:video_player/video_player.dart';
 
 class FlashScreen extends StatefulWidget {
   const FlashScreen({super.key});
@@ -26,8 +26,8 @@ class _FlashScreenState extends State<FlashScreen> {
 
     // Initialize video controllers
     _controller1 = VideoPlayerController.asset('assets/animations/video1.mp4');
-    _controller2 = VideoPlayerController.asset('assets/animations/video2.mp4');
-    _controller3 = VideoPlayerController.asset('assets/animations/video3.mp4');
+    _controller3 = VideoPlayerController.asset('assets/animations/video2.mp4');
+    _controller2 = VideoPlayerController.asset('assets/animations/video3.mp4');
     _controller4 = VideoPlayerController.asset('assets/animations/video4.mp4');
 
     // Play all videos simultaneously
@@ -82,7 +82,7 @@ class _FlashScreenState extends State<FlashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F4F4), // Light gray background (adjust if needed)
+      backgroundColor: const Color(0xFFF4F4F4),
       body: Stack(
         children: [
           // Video 1 (top)
