@@ -4,6 +4,7 @@ class RoleSelectionScreen extends StatefulWidget {
   const RoleSelectionScreen({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _RoleSelectionScreenState createState() => _RoleSelectionScreenState();
 }
 
@@ -12,7 +13,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
 
   void _navigateToSignIn(String role) {
     Navigator.pushNamed(context, '/signin',
-        arguments: role); // Pass the role to SignInScreen
+        arguments: role);
   }
 
   @override

@@ -4,7 +4,7 @@ import 'package:tottouchordertastemobileapplication/screens/onboarding_screen.da
 import 'package:tottouchordertastemobileapplication/screens/role_selection_screen.dart';
 import 'package:tottouchordertastemobileapplication/screens/signin_screen.dart';
 import 'package:tottouchordertastemobileapplication/screens/login_screen.dart';
-import 'package:tottouchordertastemobileapplication/screens/dashboard_screen.dart'; // Add the dashboard screen here
+import 'package:tottouchordertastemobileapplication/screens/dashboard_screen.dart'; 
 
 void main() {
   runApp(const MyApp());
