@@ -1,74 +1,94 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:tottouchordertastemobileapplication/controller/onboarding_controller.dart';
-import 'package:tottouchordertastemobileapplication/usecase/get_onboarding_steps_use_case.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
   @override
-  State<OnboardingScreen> createState() => _OnboardingScreenState();
+  // ignore: library_private_types_in_public_api
+  _OnboardingScreenState createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen> {
+class _OnboardingScreenState extends State<OnboardingScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
   final PageController _pageController = PageController();
-  late final OnboardingController _controller;
   int _currentPage = 0;
+
+  final List<Map<String, String>> _onboardingData = [
+    {
+      'title': 'Welcome to TOT',
+      'description': 'Touch, Order, Taste like never before!',
+      'image': 'assets/images/AppLogo.png',
+    },
+    {
+      'title': 'Easy Ordering',
+      'description': 'Seamlessly place orders from your table.',
+      'image': 'assets/images/ordering.png',
+    },
+    {
+      'title': 'Personalized Experience',
+      'description': 'Tailored menus and recommendations just for you.',
+      'image': 'assets/images/personalized.png',
+    },
+  ];
 
   @override
   void initState() {
     super.initState();
-    _controller = OnboardingController(GetOnboardingStepsUseCase());
+    _controller = AnimationController(
+      duration: const Duration(seconds: 10),
+      vsync: this,
+    )..repeat();
   }
 
   @override
   void dispose() {
+    _controller.dispose();
     _pageController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final steps = _controller.steps;
-
     return Scaffold(
       body: Stack(
         children: [
-          // Background with Cherry Blossoms and Updated Gradient
+          // Gradient Background
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  Color(0xFFF8BBD0), // Soft pink
-                  Color(0xFFF48FB1), // Light lavender pink
-                  Color(0xFFFFAB91), // Soft orange
-                  Color(0xFFEF9A9A), // Light red-pink
-                ],
+                colors: [Colors.orange, Colors.pink],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                stops: [
-                  0.1,
-                  0.4,
-                  0.7,
-                  1.0
-                ], // Adjust stops to control gradient transition
-              ),
-            ),
-          ),
-          Positioned(
-            top: -50,
-            right: -50,
-            child: SvgPicture.asset(
-              'assets/images/cherry_blossoms.svg',
-              height: 300,
-              colorFilter: ColorFilter.mode(
-                Colors.pinkAccent.withOpacity(0.2),
-                BlendMode.srcIn,
               ),
             ),
           ),
 
-          // PageView for Onboarding
+          // // Animated Food Rain
+          // AnimatedBuilder(
+          //   animation: _controller,
+          //   builder: (context, child) {
+          //     return Stack(
+          //       children: List.generate(_foodIcons.length, (index) {
+          //         final x =
+          //             Random().nextDouble() * MediaQuery.of(context).size.width;
+          //         final y = (_controller.value + index * 0.1) %
+          //             1.0 *
+          //             MediaQuery.of(context).size.height;
+          //         return Positioned(
+          //           left: x,
+          //           top: y,
+          //           child: Text(
+          //             _foodIcons[index],
+          //             style: const TextStyle(fontSize: 30),
+          //           ),
+          //         );
+          //       }),
+          //     );
+          //   },
+          // ),
+
+          // PageView for Onboarding Screens
           PageView.builder(
             controller: _pageController,
             onPageChanged: (index) {
@@ -76,92 +96,56 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 _currentPage = index;
               });
             },
-            itemCount: steps.length,
+            itemCount: _onboardingData.length,
             itemBuilder: (context, index) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Circular Image with Shadow
-                    Container(
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black26,
-                            blurRadius: 15,
-                            offset: Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: CircleAvatar(
-                        radius: 100,
-                        backgroundColor: Colors.white,
-                        child: ClipOval(
-                          child: Image.asset(
-                            steps[index].imagePath,
-                            fit: BoxFit.cover,
-                            height: 180,
-                            width: 180,
-                          ),
-                        ),
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Circular Image
+                  CircleAvatar(
+                    radius: 100,
+                    backgroundColor: Colors.orange.shade100,
+                    child: ClipOval(
+                      child: Image.asset(
+                        _onboardingData[index]['image']!,
+                        fit: BoxFit.cover,
+                        height: 180,
+                        width: 180,
                       ),
                     ),
-                    const SizedBox(height: 30),
+                  ),
+                  const SizedBox(height: 30),
 
-                    // Title with ShipporiMincho-Bold Font
-                    Text(
-                      steps[index].title,
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                        fontFamily: 'ShipporiMincho-Bold', // Apply bold font
-                        color: Color(0xFFB71C1C),
-                      ),
+                  // Title
+                  Text(
+                    _onboardingData[index]['title']!,
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
                     ),
-                    const SizedBox(height: 15),
+                  ),
+                  const SizedBox(height: 15),
 
-                    // Description with ShipporiMincho-Regular Font
-                    Text(
-                      steps[index].description,
+                  // Description
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                    child: Text(
+                      _onboardingData[index]['description']!,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        fontSize: 16,
-                        fontFamily:
-                            'ShipporiMincho-Regular', // Apply regular font
-                        color: Color.fromARGB(255, 2, 1, 1),
+                        fontSize: 18,
+                        color: Colors.white70,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               );
             },
           ),
 
-          // Skip Button
-          Positioned(
-            top: 40,
-            right: 20,
-            child: TextButton(
-              onPressed: () {
-                // Skip directly to the last step (or complete onboarding)
-                _pageController.jumpToPage(steps.length - 1);
-                Navigator.pushReplacementNamed(context, '/dashboard');
-              },
-              child: const Text(
-                'Skip',
-                style: TextStyle(
-                  fontSize: 18,
-                  color: Color.fromARGB(255, 83, 18, 18),
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'ShipporiMincho-SemiBold',
-                ),
-              ),
-            ),
-          ),
-
-          // Bottom Navigation
+          // Bottom Navigation with Skip and Next/Done Button
           Positioned(
             bottom: 50,
             left: 20,
@@ -172,55 +156,47 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 // Indicator Dots
                 Row(
                   children: List.generate(
-                    steps.length,
+                    _onboardingData.length,
                     (index) => AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
                       margin: const EdgeInsets.symmetric(horizontal: 5),
-                      height: 10,
-                      width: _currentPage == index ? 20 : 10,
+                      height: 12,
+                      width: _currentPage == index ? 24 : 12,
                       decoration: BoxDecoration(
                         color: _currentPage == index
-                            ? const Color(0xFFB71C1C)
-                            : const Color.fromARGB(255, 255, 255, 255),
+                            ? Colors.orange
+                            : Colors.grey.shade400,
                         borderRadius: BorderRadius.circular(6),
                       ),
                     ),
                   ),
                 ),
 
-                // Next/Done Button with Minimal Glow
+                // Skip or Next/Done Button
                 ElevatedButton(
-                  onPressed: () {
-                    _controller.onNextPage(
-                      _currentPage,
-                      () {
-                        _pageController.nextPage(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      },
-                      () {
-                        Navigator.pushNamed(context, '/role-selection');
-                      },
-                    );
-                  },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFB71C1C),
-                    shadowColor: Colors.redAccent,
-                    elevation: 10,
                     padding: const EdgeInsets.symmetric(
                         horizontal: 24, vertical: 12),
+                    backgroundColor: Colors.deepOrange,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
                     ),
                   ),
+                  onPressed: () {
+                    if (_currentPage == _onboardingData.length - 1) {
+                      Navigator.pushNamed(context, '/role-selection');
+                    } else {
+                      _pageController.nextPage(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    }
+                  },
                   child: Text(
-                    _currentPage == steps.length - 1 ? 'Done' : 'Next',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      color: Color.fromARGB(255, 255, 255, 255),
-                      fontFamily: 'ShipporiMincho-SemiBold',
-                    ),
+                    _currentPage == _onboardingData.length - 1
+                        ? 'Done'
+                        : 'Next',
+                    style: const TextStyle(fontSize: 18),
                   ),
                 ),
               ],
