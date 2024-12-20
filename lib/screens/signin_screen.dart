@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 class SignInScreen extends StatefulWidget {
   final String role;
@@ -7,7 +6,6 @@ class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key, required this.role});
 
   @override
-  // ignore: library_private_types_in_public_api
   _SignInScreenState createState() => _SignInScreenState();
 }
 
