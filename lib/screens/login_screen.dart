@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final String role; // Role passed from Role Selection Screen
+
+  const LoginScreen({super.key, required this.role});
 
   @override
+  // ignore: library_private_types_in_public_api
   _LoginScreenState createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  String? _selectedRole;
   final _formKey = GlobalKey<FormState>();
 
   // Function to validate email format
@@ -82,37 +83,18 @@ class _LoginScreenState extends State<LoginScreen> {
                 validator: _validatePassword,
               ),
               const SizedBox(height: 20),
-              DropdownButtonFormField<String>(
-                hint: const Text('Select Role'),
-                value: _selectedRole,
-                onChanged: (String? newRole) {
-                  setState(() {
-                    _selectedRole = newRole;
-                  });
-                },
-                items: <String>['Customer', 'Restaurant', 'Guest']
-                    .map<DropdownMenuItem<String>>((String value) {
-                  return DropdownMenuItem<String>(
-                    value: value,
-                    child: Text(value),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () {
                   if (_formKey.currentState?.validate() ?? false) {
-                    if (_selectedRole != null) {
-                      Navigator.pushReplacementNamed(
-                        context,
-                        '/dashboard',
-                        arguments: _selectedRole,
-                      );
-                    } else {
-                      _showErrorDialog('Please select a role');
-                    }
+                    // Navigate to the dashboard with the role and userName
+                    Navigator.pushReplacementNamed(
+                      context,
+                      '/dashboard',
+                      arguments: {'userName': 'Ronancy'},
+                    );
                   }
                 },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
                 child: const Text('Login'),
               ),
               const SizedBox(height: 10),
@@ -133,26 +115,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  void _showErrorDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Error'),
-          content: Text(message),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
     );
   }
 }
