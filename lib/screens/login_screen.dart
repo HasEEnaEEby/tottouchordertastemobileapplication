@@ -90,7 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Navigator.pushReplacementNamed(
                       context,
                       '/dashboard',
-                      arguments: {'userName': 'Ronancy'},
+                      arguments: {'userName': 'Haseena'},
                     );
                   }
                 },

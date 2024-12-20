@@ -1,5 +1,4 @@
 import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:tottouchordertastemobileapplication/screens/signin_screen.dart';
 
@@ -23,8 +22,7 @@ class RoleCard extends StatefulWidget {
   _RoleCardState createState() => _RoleCardState();
 }
 
-class _RoleCardState extends State<RoleCard>
-    with SingleTickerProviderStateMixin {
+class _RoleCardState extends State<RoleCard> with SingleTickerProviderStateMixin {
   bool _isFlipped = false;
   late AnimationController _controller;
   late Animation<double> _animation;
@@ -70,8 +68,7 @@ class _RoleCardState extends State<RoleCard>
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) =>
-                SignInScreen(role: widget.role), // Pass role to SignInScreen
+            builder: (context) => SignInScreen(role: widget.role), // Pass role to SignInScreen
           ),
         );
       }
