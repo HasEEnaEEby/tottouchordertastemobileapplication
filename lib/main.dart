@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:tottouchordertastemobileapplication/screens/dashboard_screen.dart';
 import 'package:tottouchordertastemobileapplication/screens/flash_screen.dart';
 import 'package:tottouchordertastemobileapplication/screens/login_screen.dart';
 import 'package:tottouchordertastemobileapplication/screens/onboarding_screen.dart';
+import 'package:tottouchordertastemobileapplication/screens/role_dashboard/customer_dashboard_screen.dart';
 import 'package:tottouchordertastemobileapplication/screens/role_selection_screen.dart';
 import 'package:tottouchordertastemobileapplication/screens/signin_screen.dart';
 
-// Define color constants (consider adding more colors as needed)
 class AppColors {
   static const Color lightPink = Color(0xFFF8BBD0);
   static const Color lightPurple = Color(0xFFF48FB1);
@@ -24,7 +23,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'TOT Restaurant Ordering',
       theme: ThemeData(
-        primaryColor: AppColors.lightPink, // Set primary color to lightPink
+        primaryColor: AppColors.lightPink,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
       initialRoute: '/',
@@ -45,10 +44,20 @@ class MyApp extends StatelessWidget {
               builder: (context) => SignInScreen(role: role ?? 'Restaurant'),
             );
           case '/login':
-            return MaterialPageRoute(builder: (context) => const LoginScreen());
-          case '/dashboard':
+            final role = settings.arguments as String?; // Get role
             return MaterialPageRoute(
-                builder: (context) => const RestaurantProfileScreen());
+                builder: (context) => LoginScreen(role: role ?? 'Customer'));
+          case '/dashboard':
+            final args = settings.arguments as Map<String, dynamic>?;
+            if (args != null && args.containsKey('userName')) {
+              final userName = args['userName'] as String;
+              return MaterialPageRoute(
+                builder: (context) => CustomerDashboard(
+                    userName: userName), // Pass userName without context
+              );
+            }
+            // Fallback case, if no username is provided
+            return MaterialPageRoute(builder: (context) => const FlashScreen());
           default:
             return MaterialPageRoute(builder: (context) => const FlashScreen());
         }
