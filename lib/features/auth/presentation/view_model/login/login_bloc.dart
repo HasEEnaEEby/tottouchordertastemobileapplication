@@ -9,7 +9,10 @@ import 'package:tottouchordertastemobileapplication/features/auth/presentation/v
 class LoginBloc extends Bloc<LoginEvent, LoginState> {
   final AuthRepository _authRepository;
 
-  LoginBloc({required AuthRepository authRepository, required LoginUseCase useCase, required NavigationService navigationService})
+  LoginBloc(
+      {required AuthRepository authRepository,
+      required LoginUseCase useCase,
+      required NavigationService navigationService})
       : _authRepository = authRepository,
         super(LoginInitial()) {
     on<LoginSubmitted>(_onLoginSubmitted);
@@ -52,7 +55,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
 
     try {
       final result = await _authRepository.logout();
-      
+
       result.fold(
         (failure) => emit(LoginError(failure.message)),
         (_) => emit(LoginInitial()),
@@ -70,7 +73,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
 
     try {
       final result = await _authRepository.getCurrentUser();
-      
+
       result.fold(
         (failure) => emit(LoginInitial()),
         (user) => emit(LoginSuccess(user)),

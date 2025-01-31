@@ -1,5 +1,3 @@
-// lib/features/auth/presentation/view/register_view.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tottouchordertastemobileapplication/core/theme/theme_data.dart';

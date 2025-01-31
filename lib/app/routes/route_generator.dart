@@ -27,13 +27,12 @@ class RouteGenerator {
 
       case AppRoutes.login:
         return MaterialPageRoute(
-          builder: (_) => const LoginView(), 
+          builder: (_) => const LoginView(),
         );
 
       case AppRoutes.register:
         return MaterialPageRoute(
-          builder: (_) =>
-              const RegisterView(), 
+          builder: (_) => const RegisterView(),
         );
 
       case AppRoutes.customerDashboard:

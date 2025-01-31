@@ -170,6 +170,27 @@ class SyncService {
     }
   }
 
+  Future<List<SyncHiveModel>> getPendingSyncs() async {
+    try {
+      final box = await _getSyncBox();
+      return box.values.where((item) => !item.isSynced).toList();
+    } catch (e) {
+      _logger.severe('Error getting pending syncs', e);
+      throw CacheException('Failed to retrieve pending sync items: $e');
+    }
+  }
+
+  // You might also want to add a method to get failed syncs
+  Future<List<SyncHiveModel>> getFailedSyncs() async {
+    try {
+      final failedBox = await _getFailedSyncBox();
+      return failedBox.values.toList();
+    } catch (e) {
+      _logger.severe('Error getting failed syncs', e);
+      throw CacheException('Failed to retrieve failed sync items: $e');
+    }
+  }
+
   // Sync pending items
   Future<void> syncPendingItems() async {
     if (_isSyncing) {

@@ -118,40 +118,142 @@ class AuthLocalRepositoryImpl implements AuthRepository {
     required String userType,
     String? username,
     String? phoneNumber,
+    String? restaurantName,
+    String? location,
+    String? contactNumber,
     Map<String, dynamic>? additionalInfo,
   }) async {
-    if (!AuthEntity.isValidEmail(email)) {
-      return const Left(ValidationFailure('Invalid email format'));
+    try {
+      // Validate email
+      if (!AuthEntity.isValidEmail(email)) {
+        return const Left(ValidationFailure('Invalid email format'));
+      }
+
+      // Validate password
+      if (!AuthEntity.isValidPassword(password)) {
+        return const Left(ValidationFailure(
+            'Password must be at least 8 characters with letters and numbers'));
+      }
+
+      // Normalize role
+      final normalizedRole = _normalizeRole(userType);
+
+      // Prepare additional info with role-specific details
+      final processedAdditionalInfo = additionalInfo ?? {};
+
+      // Add restaurant-specific details if applicable
+      if (normalizedRole == 'restaurant') {
+        _validateRestaurantData(
+          restaurantName: restaurantName,
+          location: location,
+          contactNumber: contactNumber,
+        );
+
+        processedAdditionalInfo['restaurant'] = {
+          'name': restaurantName,
+          'location': location,
+          'contactNumber': contactNumber,
+        };
+      }
+
+      // Generate username if not provided
+      final processedUsername =
+          username ?? _generateUsername(email, normalizedRole);
+
+      // Prepare user profile
+      final profile = UserProfile(
+        username: processedUsername,
+        phoneNumber: phoneNumber,
+        additionalInfo: processedAdditionalInfo,
+      );
+
+      // Prepare metadata
+      final metadata = AuthMetadata(
+        createdAt: DateTime.now(),
+        lastLoginAt: DateTime.now(),
+        lastUpdatedAt: DateTime.now(),
+        securitySettings: const {},
+      );
+
+      // Prepare registration data for sync
+      final registrationData = {
+        'email': email,
+        'username': processedUsername,
+        'role': normalizedRole,
+        'password': password,
+        if (normalizedRole == 'restaurant') ...{
+          'restaurantName': restaurantName,
+          'location': location,
+          'contactNumber': contactNumber,
+        }
+      };
+
+      // Register locally and queue for sync
+      return _handleSync<AuthEntity>(
+        action: () => _localDataSource.register(
+          email: email,
+          password: password,
+          userType: normalizedRole,
+          profile: profile,
+          metadata: metadata,
+        ),
+        toJson: (_) => registrationData,
+        operation: SyncOperation.create,
+      );
+    } catch (e) {
+      // Comprehensive error handling
+      if (e is core_exceptions.ValidationException) {
+        return Left(ValidationFailure(e.message));
+      }
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+// Normalize role method
+  String _normalizeRole(String role) {
+    switch (role.toLowerCase()) {
+      case 'restaurant':
+        return 'restaurant';
+      case 'admin':
+        return 'admin';
+      case 'customer':
+      default:
+        return 'customer';
+    }
+  }
+
+// Generate username method
+  String _generateUsername(String email, String role) {
+    if (role == 'restaurant') {
+      // For restaurant, you might want a different username generation logic
+      return email.split('@').first;
+    }
+    return email.split('@').first;
+  }
+
+// Validate restaurant data method
+  void _validateRestaurantData({
+    String? restaurantName,
+    String? location,
+    String? contactNumber,
+  }) {
+    final errors = <String>[];
+
+    if (restaurantName == null || restaurantName.trim().isEmpty) {
+      errors.add('Restaurant name is required');
     }
 
-    if (!AuthEntity.isValidPassword(password)) {
-      return const Left(ValidationFailure(
-          'Password must be at least 8 characters with letters and numbers'));
+    if (location == null || location.trim().isEmpty) {
+      errors.add('Location is required');
     }
 
-    final profile = UserProfile(
-      username: username,
-      phoneNumber: phoneNumber,
-      additionalInfo: additionalInfo ?? {},
-    );
+    if (contactNumber == null || contactNumber.trim().isEmpty) {
+      errors.add('Contact number is required');
+    }
 
-    final metadata = AuthMetadata(
-      createdAt: DateTime.now(),
-      lastLoginAt: DateTime.now(),
-      lastUpdatedAt: DateTime.now(),
-    );
-
-    return _handleSync<AuthEntity>(
-      action: () => _localDataSource.register(
-        email: email,
-        password: password,
-        userType: userType,
-        profile: profile,
-        metadata: metadata,
-      ),
-      toJson: _entityToJson,
-      operation: SyncOperation.create,
-    );
+    if (errors.isNotEmpty) {
+      throw core_exceptions.ValidationException(errors.join(', '));
+    }
   }
 
   @override

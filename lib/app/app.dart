@@ -67,6 +67,7 @@ class _AppState extends State<App> {
         BlocProvider<SyncBloc>(
           create: (context) => GetIt.instance<SyncBloc>(),
         ),
+        
       ],
       child: MaterialApp(
         title: 'TOT Restaurant Ordering',
