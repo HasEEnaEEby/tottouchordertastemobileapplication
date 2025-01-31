@@ -1,8 +1,17 @@
+// features/auth/domain/entity/auth_entity.dart
+
 import 'package:equatable/equatable.dart';
 
-enum UserType { customer, restaurant }
+enum UserType { customer, restaurant, admin }
 
-enum AuthStatus { authenticated, unauthenticated, unknown }
+enum AuthStatus {
+  authenticated,
+  unauthenticated,
+  pendingVerification,
+  pendingApproval,
+  rejected,
+  unknown
+}
 
 class AuthEntity extends Equatable {
   final String? id;
@@ -11,6 +20,10 @@ class AuthEntity extends Equatable {
   final AuthStatus status;
   final UserProfile profile;
   final AuthMetadata metadata;
+  final bool isEmailVerified;
+  final String? token;
+  final String? refreshToken;
+  final RestaurantDetails? restaurantDetails;
 
   const AuthEntity({
     this.id,
@@ -19,11 +32,24 @@ class AuthEntity extends Equatable {
     this.status = AuthStatus.unknown,
     required this.profile,
     required this.metadata,
+    this.isEmailVerified = false,
+    this.token,
+    this.refreshToken,
+    this.restaurantDetails,
   });
 
   bool get isAuthenticated => status == AuthStatus.authenticated;
   bool get isCustomer => userType == UserType.customer.name;
   bool get isRestaurant => userType == UserType.restaurant.name;
+  bool get isAdmin => userType == UserType.admin.name;
+  bool get isPendingVerification => status == AuthStatus.pendingVerification;
+  bool get isPendingApproval => status == AuthStatus.pendingApproval;
+  bool get isRejected => status == AuthStatus.rejected;
+
+  bool get canAccessDashboard =>
+      isAuthenticated &&
+      isEmailVerified &&
+      (isCustomer || (isRestaurant && !isPendingApproval && !isRejected));
 
   @override
   List<Object?> get props => [
@@ -33,6 +59,10 @@ class AuthEntity extends Equatable {
         status,
         profile,
         metadata,
+        isEmailVerified,
+        token,
+        refreshToken,
+        restaurantDetails,
       ];
 
   AuthEntity copyWith({
@@ -42,6 +72,10 @@ class AuthEntity extends Equatable {
     AuthStatus? status,
     UserProfile? profile,
     AuthMetadata? metadata,
+    bool? isEmailVerified,
+    String? token,
+    String? refreshToken,
+    RestaurantDetails? restaurantDetails,
   }) {
     return AuthEntity(
       id: id ?? this.id,
@@ -50,7 +84,55 @@ class AuthEntity extends Equatable {
       status: status ?? this.status,
       profile: profile ?? this.profile,
       metadata: metadata ?? this.metadata,
+      isEmailVerified: isEmailVerified ?? this.isEmailVerified,
+      token: token ?? this.token,
+      refreshToken: refreshToken ?? this.refreshToken,
+      restaurantDetails: restaurantDetails ?? this.restaurantDetails,
     );
+  }
+
+  factory AuthEntity.fromJson(Map<String, dynamic> json) {
+    return AuthEntity(
+      id: json['id'],
+      email: json['email'],
+      userType: json['role'],
+      status: _parseStatus(json['status']),
+      isEmailVerified: json['isEmailVerified'] ?? false,
+      profile: UserProfile.fromJson(json['profile'] ?? {}),
+      metadata: AuthMetadata.fromJson(json['metadata'] ?? {}),
+      token: json['token'],
+      refreshToken: json['refreshToken'],
+      restaurantDetails: json['restaurantDetails'] != null
+          ? RestaurantDetails.fromJson(json['restaurantDetails'])
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'email': email,
+      'role': userType,
+      'status': status.toString(),
+      'isEmailVerified': isEmailVerified,
+      'profile': profile.toJson(),
+      'metadata': metadata.toJson(),
+      if (restaurantDetails != null)
+        'restaurantDetails': restaurantDetails!.toJson(),
+    };
+  }
+
+  static AuthStatus _parseStatus(String? status) {
+    switch (status) {
+      case 'pending':
+        return AuthStatus.pendingApproval;
+      case 'rejected':
+        return AuthStatus.rejected;
+      case 'approved':
+        return AuthStatus.authenticated;
+      default:
+        return AuthStatus.unknown;
+    }
   }
 
   factory AuthEntity.unauthenticated() {
@@ -73,6 +155,57 @@ class AuthEntity extends Equatable {
   }
 }
 
+class RestaurantDetails extends Equatable {
+  final String name;
+  final String? location;
+  final String? description;
+  final String? cuisine;
+  final bool isOpen;
+  final Map<String, dynamic> additionalDetails;
+
+  const RestaurantDetails({
+    required this.name,
+    this.location,
+    this.description,
+    this.cuisine,
+    this.isOpen = false,
+    this.additionalDetails = const {},
+  });
+
+  @override
+  List<Object?> get props => [
+        name,
+        location,
+        description,
+        cuisine,
+        isOpen,
+        additionalDetails,
+      ];
+
+  factory RestaurantDetails.fromJson(Map<String, dynamic> json) {
+    return RestaurantDetails(
+      name: json['name'] ?? '',
+      location: json['location'],
+      description: json['description'],
+      cuisine: json['cuisine'],
+      isOpen: json['isOpen'] ?? false,
+      additionalDetails: json['additionalDetails'] ?? {},
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'location': location,
+      'description': description,
+      'cuisine': cuisine,
+      'isOpen': isOpen,
+      'additionalDetails': additionalDetails,
+    };
+  }
+}
+
+// Update UserProfile to match backend
 class UserProfile extends Equatable {
   final String? username;
   final String? displayName;
@@ -113,8 +246,14 @@ class UserProfile extends Equatable {
     );
   }
 
-  factory UserProfile.empty() {
-    return const UserProfile();
+  factory UserProfile.fromJson(Map<String, dynamic> json) {
+    return UserProfile(
+      username: json['username'],
+      displayName: json['displayName'],
+      phoneNumber: json['phoneNumber'],
+      profileImage: json['profileImage'],
+      additionalInfo: json['additionalInfo'] ?? {},
+    );
   }
 
   Map<String, dynamic> toJson() {
@@ -126,6 +265,8 @@ class UserProfile extends Equatable {
       'additionalInfo': additionalInfo,
     };
   }
+
+  factory UserProfile.empty() => const UserProfile();
 }
 
 class AuthMetadata extends Equatable {
@@ -151,6 +292,21 @@ class AuthMetadata extends Equatable {
         lastLoginIp,
         securitySettings,
       ];
+
+  factory AuthMetadata.fromJson(Map<String, dynamic> json) {
+    return AuthMetadata(
+      createdAt:
+          json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
+      lastLoginAt: json['lastLoginAt'] != null
+          ? DateTime.parse(json['lastLoginAt'])
+          : null,
+      lastUpdatedAt: json['lastUpdatedAt'] != null
+          ? DateTime.parse(json['lastUpdatedAt'])
+          : null,
+      lastLoginIp: json['lastLoginIp'],
+      securitySettings: json['securitySettings'] ?? {},
+    );
+  }
 
   AuthMetadata copyWith({
     DateTime? createdAt,

@@ -26,32 +26,24 @@ final getIt = GetIt.instance;
 Future<void> init() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Hive
   await Hive.initFlutter();
 
-  // Register Hive adapters
   _registerHiveAdapters();
 
   final sharedPreferences = await SharedPreferences.getInstance();
   getIt.registerSingleton<SharedPreferences>(sharedPreferences);
 
-  // Navigation Service
   getIt.registerSingleton<NavigationService>(NavigationService());
-
-  // HiveBoxManager
   getIt.registerSingleton<HiveBoxManager>(HiveBoxManager());
 
-  // Hive Service
   getIt.registerSingleton<HiveService>(
     HiveService(hiveManager: getIt<HiveBoxManager>()),
   );
 
-  // Network Info
   getIt.registerLazySingleton<NetworkInfo>(
     () => NetworkInfoImpl(InternetConnectionChecker()),
   );
 
-  // Sync Service
   getIt.registerLazySingleton<SyncService>(
     () => SyncService(
       networkInfo: getIt<NetworkInfo>(),
@@ -59,15 +51,11 @@ Future<void> init() async {
     ),
   );
 
-  // Initialize SyncService
   await getIt<SyncService>().initialize();
 
-  // Data Sources
   getIt.registerLazySingleton<AuthLocalDataSource>(
     () => AuthLocalDataSourceImpl(hiveService: getIt<HiveService>()),
   );
-
-  // Repositories
   getIt.registerLazySingleton<AuthRepository>(
     () => AuthLocalRepositoryImpl(
       localDataSource: getIt<AuthLocalDataSource>(),
@@ -76,7 +64,6 @@ Future<void> init() async {
     ),
   );
 
-  // Use Cases
   getIt.registerLazySingleton(() => LoginUseCase(
         repository: getIt<AuthRepository>(),
       ));
@@ -85,7 +72,6 @@ Future<void> init() async {
         repository: getIt<AuthRepository>(),
       ));
 
-  // Blocs
   getIt.registerFactory(() => LoginBloc(
         useCase: getIt<LoginUseCase>(),
         authRepository: getIt<AuthRepository>(),
@@ -104,7 +90,6 @@ Future<void> init() async {
         networkInfo: getIt<NetworkInfo>(),
       ));
 
-  // Debug observer for BLoC
   if (kDebugMode) {
     Bloc.observer = AppBlocObserver();
   }
