@@ -65,6 +65,7 @@ class _RegisterViewState extends State<RegisterView>
         password: _passwordController.text,
         confirmPassword: _confirmPasswordController.text,
         userType: selectedRole,
+        context: context, // Add context here
         restaurantName: selectedRole == 'restaurant'
             ? _restaurantNameController.text
             : null,
@@ -539,7 +540,12 @@ class _RegisterViewState extends State<RegisterView>
           style: TextStyle(color: Colors.grey[600]),
         ),
         TextButton(
-          onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
+          onPressed: () {
+            // Use the new NavigateToLoginEvent
+            context.read<RegisterBloc>().add(
+                  NavigateToLoginEvent(context: context),
+                );
+          },
           child: const Text(
             'Sign In',
             style: TextStyle(

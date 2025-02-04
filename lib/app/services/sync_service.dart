@@ -2,13 +2,14 @@ import 'package:dio/dio.dart';
 import 'package:hive/hive.dart';
 import 'package:logging/logging.dart';
 import 'package:tottouchordertastemobileapplication/app/constants/api_endpoints.dart';
-import 'package:tottouchordertastemobileapplication/core/common/internet_checker.dart';
+import 'package:tottouchordertastemobileapplication/core/common/internet_checker.dart'
+    as network;
 import 'package:tottouchordertastemobileapplication/core/errors/exceptions.dart';
 import 'package:tottouchordertastemobileapplication/core/network/hive_box_manager.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/data/model/sync_hive_model.dart';
 
 class SyncService {
-  final NetworkInfo _networkInfo;
+  final network.NetworkInfo _networkInfo;
   final HiveBoxManager _hiveManager;
   final Dio _dio;
   final Logger _logger = Logger('SyncService');
@@ -19,11 +20,11 @@ class SyncService {
 
   bool _isInitialized = false;
   bool _isSyncing = false;
-  String? _authToken;
 
   SyncService({
-    required NetworkInfo networkInfo,
+    required network.NetworkInfo networkInfo,
     required HiveBoxManager hiveManager,
+    required Dio dio,
   })  : _networkInfo = networkInfo,
         _hiveManager = hiveManager,
         _dio = Dio(BaseOptions(
@@ -63,7 +64,6 @@ class SyncService {
 
   // Update authentication token
   void updateAuthToken(String token) {
-    _authToken = token;
     _dio.options.headers['Authorization'] = 'Bearer $token';
     _logger.info('Authentication token updated');
   }
@@ -275,6 +275,12 @@ class SyncService {
             '$endpoint/${item.id}',
             options: Options(headers: headers),
           );
+
+        case SyncOperation.read:
+          response = await _dio.get(
+            '$endpoint/${item.id}',
+            options: Options(headers: headers),
+          );
           break;
       }
 
@@ -309,9 +315,9 @@ class SyncService {
 
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
-        throw const NetworkException('Connection timeout during sync');
+        throw NetworkException.noConnection();
       case DioExceptionType.receiveTimeout:
-        throw const NetworkException('Receive timeout during sync');
+        throw NetworkException.timeout();
       case DioExceptionType.badResponse:
         throw ServerException(
           'Server error: ${e.response?.data ?? 'Unknown error'}',

@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:flutter/material.dart';
 
 abstract class RegisterEvent extends Equatable {
   const RegisterEvent();
@@ -13,7 +14,7 @@ class RegisterUserTypeChanged extends RegisterEvent {
   const RegisterUserTypeChanged(this.userType);
 
   @override
-  List<Object?> get props => [userType];
+  List<Object> get props => [userType];
 }
 
 class RegisterSubmitted extends RegisterEvent {
@@ -26,6 +27,7 @@ class RegisterSubmitted extends RegisterEvent {
   final String? location;
   final String? contactNumber;
   final String? quote;
+  final BuildContext context;
 
   const RegisterSubmitted({
     required this.username,
@@ -33,6 +35,7 @@ class RegisterSubmitted extends RegisterEvent {
     required this.password,
     required this.confirmPassword,
     required this.userType,
+    required this.context,
     this.restaurantName,
     this.location,
     this.contactNumber,
@@ -50,5 +53,16 @@ class RegisterSubmitted extends RegisterEvent {
         location,
         contactNumber,
         quote,
+        context,
       ];
+}
+
+// Add this new event for navigating to the login page
+class NavigateToLoginEvent extends RegisterEvent {
+  final BuildContext context;
+
+  const NavigateToLoginEvent({required this.context});
+
+  @override
+  List<Object?> get props => [context];
 }
