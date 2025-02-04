@@ -4,7 +4,7 @@ import '../../domain/entity/auth_entity.dart';
 
 part 'auth_api_model.g.dart';
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class AuthApiModel {
   @JsonKey(name: '_id', defaultValue: '')
   final String id;
@@ -29,8 +29,25 @@ class AuthApiModel {
     required this.metadata,
   });
 
-  factory AuthApiModel.fromJson(Map<String, dynamic> json) =>
-      _$AuthApiModelFromJson(json);
+  factory AuthApiModel.fromJson(Map<String, dynamic> json) {
+    // Handle nested 'data' structure from backend
+    final userData = json['data']?['user'] ?? json['user'] ?? json;
+
+    return AuthApiModel(
+      id: userData['_id'] ?? userData['id'] ?? '',
+      email: userData['email'] ?? '',
+      userType: userData['role'] ?? userData['userType'] ?? 'customer',
+      token: json['data']?['token'] ?? userData['token'],
+      refreshToken: json['data']?['refreshToken'] ?? userData['refreshToken'],
+      isEmailVerified: userData['isEmailVerified'] ?? false,
+      profile: userData['profile'] != null
+          ? UserProfileModel.fromJson(userData['profile'])
+          : const UserProfileModel(),
+      metadata: userData['metadata'] != null
+          ? AuthMetadataModel.fromJson(userData['metadata'])
+          : const AuthMetadataModel(),
+    );
+  }
 
   Map<String, dynamic> toJson() => _$AuthApiModelToJson(this);
 
@@ -44,12 +61,16 @@ class AuthApiModel {
           : AuthStatus.pendingVerification,
       profile: profile.toEntity(),
       metadata: metadata.toEntity(),
+      token: token,
+      refreshToken: refreshToken,
+      isEmailVerified: isEmailVerified,
     );
   }
 }
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class UserProfileModel {
+  @JsonKey(defaultValue: '')
   final String? username;
   final String? displayName;
   final String? phoneNumber;
@@ -65,8 +86,16 @@ class UserProfileModel {
     this.additionalInfo = const {},
   });
 
-  factory UserProfileModel.fromJson(Map<String, dynamic> json) =>
-      _$UserProfileModelFromJson(json);
+  factory UserProfileModel.fromJson(Map<String, dynamic> json) {
+    // Handle potential null or missing fields
+    return UserProfileModel(
+      username: json['username'],
+      displayName: json['displayName'] ?? json['name'],
+      phoneNumber: json['phoneNumber'] ?? json['contact'],
+      profileImage: json['profileImage'] ?? json['avatar'],
+      additionalInfo: json['additionalInfo'] ?? {},
+    );
+  }
 
   Map<String, dynamic> toJson() => _$UserProfileModelToJson(this);
 
@@ -81,7 +110,7 @@ class UserProfileModel {
   }
 }
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class AuthMetadataModel {
   @JsonKey(fromJson: _dateFromJson, toJson: _dateToJson)
   final DateTime? createdAt;
@@ -101,8 +130,15 @@ class AuthMetadataModel {
     this.securitySettings = const {},
   });
 
-  factory AuthMetadataModel.fromJson(Map<String, dynamic> json) =>
-      _$AuthMetadataModelFromJson(json);
+  factory AuthMetadataModel.fromJson(Map<String, dynamic> json) {
+    return AuthMetadataModel(
+      createdAt: _dateFromJson(json['createdAt']),
+      lastLoginAt: _dateFromJson(json['lastLoginAt']),
+      lastUpdatedAt: _dateFromJson(json['updatedAt'] ?? json['lastUpdatedAt']),
+      lastLoginIp: json['lastLoginIp'],
+      securitySettings: json['securitySettings'] ?? {},
+    );
+  }
 
   Map<String, dynamic> toJson() => _$AuthMetadataModelToJson(this);
 
@@ -116,8 +152,15 @@ class AuthMetadataModel {
     );
   }
 
-  static DateTime? _dateFromJson(String? date) =>
-      date == null ? null : DateTime.parse(date);
+  static DateTime? _dateFromJson(String? date) {
+    if (date == null) return null;
+    try {
+      return DateTime.parse(date);
+    } catch (e) {
+      print('Error parsing date: $date');
+      return null;
+    }
+  }
 
   static String? _dateToJson(DateTime? date) => date?.toIso8601String();
 }

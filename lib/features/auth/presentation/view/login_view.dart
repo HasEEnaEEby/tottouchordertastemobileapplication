@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tottouchordertastemobileapplication/core/config/app_theme.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/view/customer_dashboard_view.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/view/restaurant_dashboard_view.dart';
 
 import '../view_model/login/login_bloc.dart';
 import '../view_model/login/login_event.dart';
@@ -37,10 +39,22 @@ class _LoginViewState extends State<LoginView> {
     return BlocListener<LoginBloc, LoginState>(
       listener: (context, state) {
         if (state is LoginSuccess) {
-          Navigator.pushReplacementNamed(
-            context,
-            state.user.userType == 'customer' ? '/customer' : '/restaurant',
-          );
+          // Navigation will now be handled in the Bloc
+          if (state.user.userType == 'customer') {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => CustomerDashboardView(
+                  userName: state.user.profile.username ?? '',
+                ),
+              ),
+            );
+          } else if (state.user.userType == 'restaurant') {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => const RestaurantDashboardView(),
+              ),
+            );
+          }
         } else if (state is LoginError) {
           _showErrorSnackbar(context, state.message);
         }
@@ -282,6 +296,7 @@ class _LoginViewState extends State<LoginView> {
               if (_formKey.currentState!.validate()) {
                 context.read<LoginBloc>().add(
                       LoginSubmitted(
+                        context: context, // Pass the context
                         email: _emailController.text,
                         password: _passwordController.text,
                         userType: _selectedUserType,
@@ -348,7 +363,12 @@ class _LoginViewState extends State<LoginView> {
           ),
         ),
         TextButton(
-          onPressed: () => Navigator.pushNamed(context, '/register'),
+          onPressed: () {
+            // Use the bloc to handle navigation
+            context.read<LoginBloc>().add(
+                  NavigateRegisterScreenEvent(context: context),
+                );
+          },
           style: TextButton.styleFrom(
             foregroundColor: AppColors.primary,
             padding: EdgeInsets.zero,

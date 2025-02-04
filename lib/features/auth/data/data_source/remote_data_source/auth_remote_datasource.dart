@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:logging/logging.dart';
+import 'package:tottouchordertastemobileapplication/core/common/internet_checker.dart'as network;
 
 import '../../../../../app/constants/api_endpoints.dart';
-import '../../../../../core/common/internet_checker.dart';
 import '../../../../../core/errors/exceptions.dart';
 import '../../../domain/entity/auth_entity.dart';
 import '../../model/auth_api_model.dart';
@@ -12,12 +12,12 @@ import '../auth_data_source.dart';
 
 class AuthRemoteDataSource implements IAuthDataSource {
   final Dio _dio;
-  final NetworkInfo _networkInfo;
+  final network.NetworkInfo _networkInfo;
   final Logger _logger = Logger('AuthRemoteDataSource');
 
   AuthRemoteDataSource({
     required Dio dio,
-    required NetworkInfo networkInfo,
+    required network.NetworkInfo networkInfo,
   })  : _dio = dio,
         _networkInfo = networkInfo;
 
@@ -32,7 +32,7 @@ class AuthRemoteDataSource implements IAuthDataSource {
       await _checkConnection();
 
       final response = await _dio.post(
-        userType == 'admin' ? ApiEndpoints.adminLogin : ApiEndpoints.login,
+        ApiEndpoints.login,
         data: {
           'email': email.trim().toLowerCase(),
           'password': password,
@@ -48,10 +48,7 @@ class AuthRemoteDataSource implements IAuthDataSource {
       } else {
         throw AuthException.invalidCredentials();
       }
-    } on DioException catch (e) {
-      throw _handleDioError(e);
     } catch (e) {
-      if (e is AppException) rethrow;
       throw _handleError(e);
     }
   }
@@ -270,12 +267,11 @@ class AuthRemoteDataSource implements IAuthDataSource {
     }
   }
 
-  // Helper methods
-  Future<void> _checkConnection() async {
-    if (!await _networkInfo.isConnected) {
-      throw NetworkException.noConnection();
-    }
+Future<void> _checkConnection() async {
+  if (!await _networkInfo.isConnected) {
+    throw NetworkException.noConnection(); 
   }
+}
 
   void _updateAuthToken(AuthApiModel authModel) {
     if (authModel.token == null || authModel.token!.isEmpty) {

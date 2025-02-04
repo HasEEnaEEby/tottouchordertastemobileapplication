@@ -1,6 +1,5 @@
 import 'package:equatable/equatable.dart';
-
-import '../../../domain/entity/auth_entity.dart';
+import 'package:tottouchordertastemobileapplication/features/auth/domain/entity/auth_entity.dart';
 
 abstract class RegisterState extends Equatable {
   final String selectedUserType;
@@ -14,17 +13,20 @@ abstract class RegisterState extends Equatable {
 }
 
 class RegisterInitial extends RegisterState {
-  const RegisterInitial({super.selectedUserType});
+  const RegisterInitial({super.selectedUserType = 'customer'});
 }
 
 class RegisterLoading extends RegisterState {
-  const RegisterLoading({super.selectedUserType});
+  const RegisterLoading({required super.selectedUserType});
 }
 
 class RegisterSuccess extends RegisterState {
   final AuthEntity user;
 
-  const RegisterSuccess(this.user, {super.selectedUserType});
+  const RegisterSuccess(
+    this.user, {
+    required super.selectedUserType,
+  });
 
   @override
   List<Object?> get props => [user, selectedUserType];
@@ -33,7 +35,10 @@ class RegisterSuccess extends RegisterState {
 class RegisterError extends RegisterState {
   final String message;
 
-  const RegisterError(this.message, {super.selectedUserType});
+  const RegisterError(
+    this.message, {
+    required super.selectedUserType,
+  });
 
   @override
   List<Object?> get props => [message, selectedUserType];

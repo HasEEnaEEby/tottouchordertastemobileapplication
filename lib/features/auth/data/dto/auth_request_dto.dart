@@ -1,21 +1,24 @@
 class AuthRequestDTO {
   final String email;
   final String password;
-  final String? role;
+  final String role;
+  final String? adminCode;
   final String? username;
 
   AuthRequestDTO({
     required this.email,
     required this.password,
-    this.role,
+    required this.role,
+    this.adminCode,
     this.username,
   });
 
   Map<String, dynamic> toJson() {
     return {
-      'email': email,
+      'email': email.trim().toLowerCase(),
       'password': password,
-      if (role != null) 'role': role,
+      'role': role.toLowerCase(),
+      if (adminCode != null) 'adminCode': adminCode,
       if (username != null) 'username': username,
     };
   }
