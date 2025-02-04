@@ -1,57 +1,43 @@
-import 'package:equatable/equatable.dart';
-
-class RestaurantEntity extends Equatable {
-  final String name;
+class RestaurantEntity {
+  final String id;
+  final String username;
+  final String restaurantName;
   final String location;
-  final String? description;
   final String contactNumber;
-  final String? website;
-  final bool isVerified;
-  final Map<String, dynamic> businessHours;
-  final List<String> cuisine;
+  final String quote;
+  final String status;
 
   const RestaurantEntity({
-    required this.name,
+    required this.id,
+    required this.username,
+    required this.restaurantName,
     required this.location,
-    this.description,
     required this.contactNumber,
-    this.website,
-    this.isVerified = false,
-    this.businessHours = const {},
-    this.cuisine = const [],
+    required this.quote,
+    required this.status,
   });
 
-  @override
-  List<Object?> get props => [
-        name,
-        location,
-        description,
-        contactNumber,
-        website,
-        isVerified,
-        businessHours,
-        cuisine,
-      ];
-
-  RestaurantEntity copyWith({
-    String? name,
-    String? location,
-    String? description,
-    String? contactNumber,
-    String? website,
-    bool? isVerified,
-    Map<String, dynamic>? businessHours,
-    List<String>? cuisine,
-  }) {
+  factory RestaurantEntity.fromJson(Map<String, dynamic> json) {
     return RestaurantEntity(
-      name: name ?? this.name,
-      location: location ?? this.location,
-      description: description ?? this.description,
-      contactNumber: contactNumber ?? this.contactNumber,
-      website: website ?? this.website,
-      isVerified: isVerified ?? this.isVerified,
-      businessHours: businessHours ?? this.businessHours,
-      cuisine: cuisine ?? this.cuisine,
+      id: json['id'] as String,
+      username: json['username'] as String,
+      restaurantName: json['restaurantName'] as String,
+      location: json['location'] as String,
+      contactNumber: json['contactNumber'] as String,
+      quote: json['quote'] as String? ?? '',
+      status: json['status'] as String,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'username': username,
+      'restaurantName': restaurantName,
+      'location': location,
+      'contactNumber': contactNumber,
+      'quote': quote,
+      'status': status,
+    };
   }
 }

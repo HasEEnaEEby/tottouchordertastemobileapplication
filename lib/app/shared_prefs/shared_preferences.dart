@@ -125,12 +125,9 @@ class SharedPreferencesService {
     await _prefs.remove(keyUserPreferences);
   }
 
-  // Check if specific key exists
   bool hasKey(String key) {
     return _prefs.containsKey(key);
   }
-
-  // Generic methods for different types
   Future<void> setString(String key, String value) async {
     await _prefs.setString(key, value);
   }

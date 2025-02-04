@@ -9,15 +9,17 @@ class LoginParams extends Equatable {
   final String email;
   final String password;
   final String userType;
+  final String? adminCode;
 
   const LoginParams({
     required this.email,
     required this.password,
     required this.userType,
+    this.adminCode,
   });
 
   @override
-  List<Object?> get props => [email, password, userType];
+  List<Object?> get props => [email, password, userType, adminCode];
 }
 
 class LoginUseCase {
@@ -26,6 +28,7 @@ class LoginUseCase {
   LoginUseCase({required this.repository});
 
   Future<Either<Failure, AuthEntity>> call(LoginParams params) async {
+    // Validate email
     if (params.email.isEmpty) {
       return const Left(ValidationFailure('Email cannot be empty'));
     }
@@ -34,6 +37,7 @@ class LoginUseCase {
       return const Left(ValidationFailure('Invalid email format'));
     }
 
+    // Validate password
     if (params.password.isEmpty) {
       return const Left(ValidationFailure('Password cannot be empty'));
     }
@@ -44,6 +48,7 @@ class LoginUseCase {
       ));
     }
 
+    // Validate user type
     if (params.userType.isEmpty) {
       return const Left(ValidationFailure('User type cannot be empty'));
     }
@@ -55,11 +60,20 @@ class LoginUseCase {
       ));
     }
 
+    // Validate admin code if user type is restaurant
+    if (params.userType.toLowerCase() == 'restaurant' &&
+        (params.adminCode == null || params.adminCode!.isEmpty)) {
+      return const Left(
+          ValidationFailure('Admin code is required for restaurant login'));
+    }
+
     try {
       return await repository.login(
         email: params.email.trim(),
         password: params.password,
         userType: params.userType.toLowerCase(),
+        adminCode: params.adminCode
+        
       );
     } catch (e) {
       return Left(AuthFailure('Login failed: ${e.toString()}'));

@@ -1,19 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:tottouchordertastemobileapplication/app/di/di.dart';
+import 'package:tottouchordertastemobileapplication/core/common/internet_checker.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/data/model/auth_hive_model.dart';
 
 import 'app/app.dart';
-import 'app/di/di.dart';
 
 void main() async {
-  await Hive
-      .initFlutter(); 
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Hive.initFlutter();
 
   Hive.registerAdapter(AuthHiveModelAdapter());
   Hive.registerAdapter(UserProfileHiveModelAdapter());
   Hive.registerAdapter(AuthMetadataHiveModelAdapter());
 
-  await init();
+  await initDependencies();
+  await initNetwork();
+
+  Bloc.observer = AppBlocObserver();
 
   runApp(const App());
 }

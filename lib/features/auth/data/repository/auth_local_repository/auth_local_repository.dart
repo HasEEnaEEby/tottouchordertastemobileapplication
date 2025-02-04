@@ -1,6 +1,10 @@
 import 'package:dartz/dartz.dart';
+import 'package:dio/dio.dart';
+import 'package:tottouchordertastemobileapplication/app/constants/api_endpoints.dart';
+import 'package:tottouchordertastemobileapplication/features/auth/data/model/auth_api_model.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/data/model/sync_hive_model.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/domain/entity/auth_entity.dart';
+import 'package:tottouchordertastemobileapplication/features/auth/domain/entity/restaurant_entity.dart';
 
 import '../../../../../app/services/sync_service.dart';
 import '../../../../../core/common/internet_checker.dart';
@@ -13,15 +17,18 @@ class AuthLocalRepositoryImpl implements AuthRepository {
   final AuthLocalDataSource _localDataSource;
   final NetworkInfo _networkInfo;
   final SyncService _syncService;
+  final Dio _dio;
   static const String entityType = 'auth';
 
   AuthLocalRepositoryImpl({
     required AuthLocalDataSource localDataSource,
     required NetworkInfo networkInfo,
     required SyncService syncService,
+    required Dio dio,
   })  : _localDataSource = localDataSource,
         _networkInfo = networkInfo,
-        _syncService = syncService;
+        _syncService = syncService,
+        _dio = Dio();
 
   Future<Either<Failure, T>> _handleSync<T>({
     required Future<T> Function() action,
@@ -87,6 +94,7 @@ class AuthLocalRepositoryImpl implements AuthRepository {
     required String email,
     required String password,
     required String userType,
+    String? adminCode,
   }) async {
     try {
       final isConnected = await _networkInfo.isConnected;
@@ -94,16 +102,37 @@ class AuthLocalRepositoryImpl implements AuthRepository {
         throw const core_exceptions.NetworkException('No internet connection');
       }
 
-      return _handleSync<AuthEntity>(
-        action: () => _localDataSource.login(
-          email: email,
-          password: password,
-          userType: userType,
-        ),
-        toJson: _entityToJson,
-        operation: SyncOperation.update,
-        id: email,
+      // Validate admin code for restaurant login
+      if (userType.toLowerCase() == 'restaurant' &&
+          (adminCode == null || adminCode.isEmpty)) {
+        return const Left(
+            ValidationFailure('Admin code is required for restaurant login'));
+      }
+
+      // Create request data
+      final requestData = {
+        'email': email.trim().toLowerCase(),
+        'password': password,
+        'role': userType,
+        if (adminCode != null) 'adminCode': adminCode,
+      };
+
+      // Make remote login request
+      final response = await _dio.post(
+        ApiEndpoints.login,
+        data: requestData,
       );
+
+      if (response.statusCode == 200 && response.data['data'] != null) {
+        final authModel = AuthApiModel.fromJson(response.data['data']);
+
+        // Save user data locally
+        await _localDataSource.updateUser(authModel.toEntity());
+
+        return Right(authModel.toEntity());
+      } else {
+        return const Left(AuthFailure('Login failed'));
+      }
     } on core_exceptions.NetworkException catch (e) {
       return Left(NetworkFailure(e.message));
     } catch (e) {
@@ -118,40 +147,142 @@ class AuthLocalRepositoryImpl implements AuthRepository {
     required String userType,
     String? username,
     String? phoneNumber,
+    String? restaurantName,
+    String? location,
+    String? contactNumber,
     Map<String, dynamic>? additionalInfo,
   }) async {
-    if (!AuthEntity.isValidEmail(email)) {
-      return const Left(ValidationFailure('Invalid email format'));
+    try {
+      // Validate email
+      if (!AuthEntity.isValidEmail(email)) {
+        return const Left(ValidationFailure('Invalid email format'));
+      }
+
+      // Validate password
+      if (!AuthEntity.isValidPassword(password)) {
+        return const Left(ValidationFailure(
+            'Password must be at least 8 characters with letters and numbers'));
+      }
+
+      // Normalize role
+      final normalizedRole = _normalizeRole(userType);
+
+      // Prepare additional info with role-specific details
+      final processedAdditionalInfo = additionalInfo ?? {};
+
+      // Add restaurant-specific details if applicable
+      if (normalizedRole == 'restaurant') {
+        _validateRestaurantData(
+          restaurantName: restaurantName,
+          location: location,
+          contactNumber: contactNumber,
+        );
+
+        processedAdditionalInfo['restaurant'] = {
+          'name': restaurantName,
+          'location': location,
+          'contactNumber': contactNumber,
+        };
+      }
+
+      // Generate username if not provided
+      final processedUsername =
+          username ?? _generateUsername(email, normalizedRole);
+
+      // Prepare user profile
+      final profile = UserProfile(
+        username: processedUsername,
+        phoneNumber: phoneNumber,
+        additionalInfo: processedAdditionalInfo,
+      );
+
+      // Prepare metadata
+      final metadata = AuthMetadata(
+        createdAt: DateTime.now(),
+        lastLoginAt: DateTime.now(),
+        lastUpdatedAt: DateTime.now(),
+        securitySettings: const {},
+      );
+
+      // Prepare registration data for sync
+      final registrationData = {
+        'email': email,
+        'username': processedUsername,
+        'role': normalizedRole,
+        'password': password,
+        if (normalizedRole == 'restaurant') ...{
+          'restaurantName': restaurantName,
+          'location': location,
+          'contactNumber': contactNumber,
+        }
+      };
+
+      // Register locally and queue for sync
+      return _handleSync<AuthEntity>(
+        action: () => _localDataSource.register(
+          email: email,
+          password: password,
+          userType: normalizedRole,
+          profile: profile,
+          metadata: metadata,
+        ),
+        toJson: (_) => registrationData,
+        operation: SyncOperation.create,
+      );
+    } catch (e) {
+      // Comprehensive error handling
+      if (e is core_exceptions.ValidationException) {
+        return Left(ValidationFailure(e.message));
+      }
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+// Normalize role method
+  String _normalizeRole(String role) {
+    switch (role.toLowerCase()) {
+      case 'restaurant':
+        return 'restaurant';
+      case 'admin':
+        return 'admin';
+      case 'customer':
+      default:
+        return 'customer';
+    }
+  }
+
+// Generate username method
+  String _generateUsername(String email, String role) {
+    if (role == 'restaurant') {
+      // For restaurant, you might want a different username generation logic
+      return email.split('@').first;
+    }
+    return email.split('@').first;
+  }
+
+// Validate restaurant data method
+  void _validateRestaurantData({
+    String? restaurantName,
+    String? location,
+    String? contactNumber,
+  }) {
+    final errors = <String>[];
+
+    if (restaurantName == null || restaurantName.trim().isEmpty) {
+      errors.add('Restaurant name is required');
     }
 
-    if (!AuthEntity.isValidPassword(password)) {
-      return const Left(ValidationFailure(
-          'Password must be at least 8 characters with letters and numbers'));
+    if (location == null || location.trim().isEmpty) {
+      errors.add('Location is required');
     }
 
-    final profile = UserProfile(
-      username: username,
-      phoneNumber: phoneNumber,
-      additionalInfo: additionalInfo ?? {},
-    );
+    if (contactNumber == null || contactNumber.trim().isEmpty) {
+      errors.add('Contact number is required');
+    }
 
-    final metadata = AuthMetadata(
-      createdAt: DateTime.now(),
-      lastLoginAt: DateTime.now(),
-      lastUpdatedAt: DateTime.now(),
-    );
-
-    return _handleSync<AuthEntity>(
-      action: () => _localDataSource.register(
-        email: email,
-        password: password,
-        userType: userType,
-        profile: profile,
-        metadata: metadata,
-      ),
-      toJson: _entityToJson,
-      operation: SyncOperation.create,
-    );
+    if (errors.isNotEmpty) {
+      throw core_exceptions.ValidationException(errors.join(', '));
+    }
   }
 
   @override
@@ -332,5 +463,71 @@ class AuthLocalRepositoryImpl implements AuthRepository {
     } catch (e) {
       return Left(ServerFailure(e.toString()));
     }
+  }
+
+  @override
+  Future<Either<Failure, List<RestaurantEntity>>> getRestaurants() async {
+    try {
+      final isConnected = await _networkInfo.isConnected;
+      if (!isConnected) {
+        throw const core_exceptions.NetworkException('No internet connection');
+      }
+
+      return _handleSync<List<RestaurantEntity>>(
+        action: () async {
+          final restaurants = await _localDataSource.getAllRestaurants();
+
+          // Convert AuthEntity to RestaurantEntity
+          return restaurants
+              .map((auth) => RestaurantEntity(
+                    id: auth.id ?? '',
+                    // username: auth.profile.username,
+                    restaurantName: auth.profile.additionalInfo['restaurant']
+                            ?['name'] ??
+                        '',
+                    location: auth.profile.additionalInfo['restaurant']
+                            ?['location'] ??
+                        '',
+                    contactNumber: auth.profile.additionalInfo['restaurant']
+                            ?['contactNumber'] ??
+                        '',
+                    quote: auth.profile.additionalInfo['restaurant']
+                            ?['quote'] ??
+                        '',
+                    status: auth.status.toString(), username: '',
+                  ))
+              .toList();
+        },
+        toJson: (restaurants) => {
+          'restaurants': restaurants.map((r) => r.toJson()).toList(),
+        },
+        operation: SyncOperation.read,
+      );
+    } on core_exceptions.NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } on core_exceptions.CacheException catch (e) {
+      return Left(CacheFailure(e.message));
+    } on AuthException catch (e) {
+      return Left(AuthFailure(e.message));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, UserProfile>> getUserProfile(
+      {required String userId}) {
+    // TODO: implement getUserProfile
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failure, UserProfile>> updateUserProfile(
+      {String? name,
+      String? email,
+      String? phoneNumber,
+      String? profilePicture}) {
+    // TODO: implement updateUserProfile
+    throw UnimplementedError();
   }
 }

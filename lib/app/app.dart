@@ -7,10 +7,8 @@ import 'package:tottouchordertastemobileapplication/core/config/app_theme.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/login/login_bloc.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/signup/register_bloc.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/sync/sync_bloc.dart';
-
-import 'routes/app_routes.dart';
-import 'routes/route_generator.dart';
-import 'services/navigation_service.dart';
+import 'package:tottouchordertastemobileapplication/features/splash/presentation/view/splash_view.dart';
+import 'package:tottouchordertastemobileapplication/features/splash_onboarding_cubit.dart';
 
 class App extends StatefulWidget {
   const App({super.key});
@@ -58,6 +56,9 @@ class _AppState extends State<App> {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
+        BlocProvider<SplashOnboardingCubit>(
+          create: (context) => GetIt.instance<SplashOnboardingCubit>(),
+        ),
         BlocProvider<LoginBloc>(
           create: (context) => GetIt.instance<LoginBloc>(),
         ),
@@ -74,9 +75,7 @@ class _AppState extends State<App> {
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
         themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
-        navigatorKey: GetIt.instance<NavigationService>().navigatorKey,
-        initialRoute: AppRoutes.initial,
-        onGenerateRoute: RouteGenerator.generateRoute,
+        home: const FlashScreen(),
         builder: (context, child) {
           return ScrollConfiguration(
             behavior: const ScrollBehavior(),
@@ -91,10 +90,5 @@ class _AppState extends State<App> {
     setState(() {
       isDarkMode = !isDarkMode;
     });
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 }

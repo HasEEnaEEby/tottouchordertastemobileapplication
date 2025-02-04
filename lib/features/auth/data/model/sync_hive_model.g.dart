@@ -71,6 +71,8 @@ class SyncOperationAdapter extends TypeAdapter<SyncOperation> {
         return SyncOperation.update;
       case 2:
         return SyncOperation.delete;
+      case 3:
+        return SyncOperation.read;
       default:
         return SyncOperation.create;
     }
@@ -87,6 +89,9 @@ class SyncOperationAdapter extends TypeAdapter<SyncOperation> {
         break;
       case SyncOperation.delete:
         writer.writeByte(2);
+        break;
+      case SyncOperation.read:
+        writer.writeByte(3);
         break;
     }
   }

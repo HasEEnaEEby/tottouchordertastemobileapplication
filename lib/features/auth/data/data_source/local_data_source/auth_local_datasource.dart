@@ -11,6 +11,7 @@ abstract class AuthLocalDataSource {
     required String email,
     required String password,
     required String userType,
+    String? adminCode,
   });
 
   Future<AuthEntity> register({
@@ -20,6 +21,8 @@ abstract class AuthLocalDataSource {
     required UserProfile profile,
     required AuthMetadata metadata,
   });
+
+  Future<List<AuthEntity>> getAllRestaurants();
 
   Future<void> logout();
   Future<AuthEntity?> getCurrentUser();
@@ -52,33 +55,55 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     required String email,
     required String password,
     required String userType,
+    String? adminCode,
   }) async {
     try {
       final normalizedEmail = email.trim().toLowerCase();
       final normalizedUserType = userType.trim().toLowerCase();
 
+      // Get user from storage
       final user = await getUserByEmail(normalizedEmail);
       if (user == null) {
         throw const AuthException('User not found');
       }
 
+      // Validate user type
       if (user.userType.toLowerCase() != normalizedUserType) {
         throw const AuthException('Invalid user type');
       }
 
+      // Validate admin code for restaurant login
+      if (normalizedUserType == 'restaurant') {
+        if (adminCode == null || adminCode.isEmpty) {
+          throw const AuthException(
+              'Admin code is required for restaurant login');
+        }
+
+        // Verify admin code from user's profile
+        final storedAdminCode = user.profile.additionalInfo['adminCode'];
+        if (storedAdminCode == null || storedAdminCode != adminCode) {
+          throw const AuthException('Invalid admin code');
+        }
+      }
+
+      // Verify password
       final hashedPassword = _hashPassword(password);
       if (user.profile.additionalInfo['hashedPassword'] != hashedPassword) {
         throw const AuthException('Invalid password');
       }
 
+      // Update user status and metadata
       final updatedUser = user.copyWith(
         status: AuthStatus.authenticated,
         metadata: user.metadata.copyWith(
           lastLoginAt: DateTime.now(),
           lastUpdatedAt: DateTime.now(),
+          lastLoginIp: null, // You can add IP tracking if needed
+          securitySettings: user.metadata.securitySettings ?? {},
         ),
       );
 
+      // Create models for storage
       final authModel = AuthHiveModel.fromEntity(updatedUser);
       final currentUserModel = AuthHiveModel(
         id: authModel.id,
@@ -89,13 +114,33 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
         metadata: authModel.metadata,
       );
 
+      // Save updated user data
       await _hiveService.saveData(_userBox, user.id!, authModel);
-
       await _hiveService.saveData(_userBox, _currentUserKey, currentUserModel);
 
       return updatedUser;
+    } on AuthException {
+      rethrow;
     } catch (e) {
       throw AuthException('Login failed: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<List<AuthEntity>> getAllRestaurants() async {
+    try {
+      final users = await _hiveService.getAllData<AuthHiveModel>(_userBox);
+
+      // Filter only restaurant users
+      final restaurants = users
+          .where((user) =>
+              user.userType.toLowerCase() == 'restaurant' &&
+              user.status == AuthStatus.authenticated)
+          .toList();
+
+      return restaurants.map((model) => model.toEntity()).toList();
+    } catch (e) {
+      throw AuthException('Failed to get restaurants: ${e.toString()}');
     }
   }
 
@@ -106,48 +151,54 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     required String userType,
     required UserProfile profile,
     required AuthMetadata metadata,
+    String? adminCode, // Add this parameter
   }) async {
     try {
       final normalizedEmail = email.trim().toLowerCase();
+      final normalizedUserType = userType.trim().toLowerCase();
 
       if (await emailExists(normalizedEmail)) {
         throw const AuthException('Email already exists');
       }
 
+      // Validate admin code for restaurant registration
+      if (normalizedUserType == 'restaurant') {
+        if (adminCode == null || adminCode.isEmpty) {
+          throw const AuthException(
+              'Admin code is required for restaurant registration');
+        }
+      }
+
       final hashedPassword = _hashPassword(password);
       final userId = DateTime.now().millisecondsSinceEpoch.toString();
 
+      // Update profile with admin code for restaurants
+      final Map<String, dynamic> additionalInfo = {
+        ...profile.additionalInfo,
+        'hashedPassword': hashedPassword,
+        if (normalizedUserType == 'restaurant') 'adminCode': adminCode,
+      };
+
       final updatedProfile = profile.copyWith(
-        additionalInfo: {
-          ...profile.additionalInfo,
-          'hashedPassword': hashedPassword,
-        },
+        additionalInfo: additionalInfo,
       );
 
+      // Create user entity
       final user = AuthEntity(
         id: userId,
         email: normalizedEmail,
-        userType: userType.trim().toLowerCase(),
+        userType: normalizedUserType,
         status: AuthStatus.authenticated,
         profile: updatedProfile,
         metadata: metadata.copyWith(
           createdAt: DateTime.now(),
+          lastUpdatedAt: DateTime.now(),
         ),
       );
 
+      // Save user data
       final authModel = AuthHiveModel.fromEntity(user);
-      final currentUserModel = AuthHiveModel(
-        id: authModel.id,
-        email: authModel.email,
-        userType: authModel.userType,
-        status: authModel.status,
-        profile: authModel.profile,
-        metadata: authModel.metadata,
-      );
-
       await _hiveService.saveData(_userBox, userId, authModel);
-
-      await _hiveService.saveData(_userBox, _currentUserKey, currentUserModel);
 
       return user;
     } catch (e) {
