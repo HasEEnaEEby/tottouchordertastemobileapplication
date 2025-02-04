@@ -46,4 +46,7 @@ enum SyncOperation {
 
   @HiveField(2)
   delete,
+
+  @HiveField(3)
+  read,
 }

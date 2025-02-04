@@ -1,6 +1,10 @@
 import 'package:dartz/dartz.dart';
+import 'package:dio/dio.dart';
+import 'package:tottouchordertastemobileapplication/app/constants/api_endpoints.dart';
+import 'package:tottouchordertastemobileapplication/features/auth/data/model/auth_api_model.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/data/model/sync_hive_model.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/domain/entity/auth_entity.dart';
+import 'package:tottouchordertastemobileapplication/features/auth/domain/entity/restaurant_entity.dart';
 
 import '../../../../../app/services/sync_service.dart';
 import '../../../../../core/common/internet_checker.dart';
@@ -13,15 +17,18 @@ class AuthLocalRepositoryImpl implements AuthRepository {
   final AuthLocalDataSource _localDataSource;
   final NetworkInfo _networkInfo;
   final SyncService _syncService;
+  final Dio _dio;
   static const String entityType = 'auth';
 
   AuthLocalRepositoryImpl({
     required AuthLocalDataSource localDataSource,
     required NetworkInfo networkInfo,
     required SyncService syncService,
+    required Dio dio,
   })  : _localDataSource = localDataSource,
         _networkInfo = networkInfo,
-        _syncService = syncService;
+        _syncService = syncService,
+        _dio = Dio();
 
   Future<Either<Failure, T>> _handleSync<T>({
     required Future<T> Function() action,
@@ -87,6 +94,7 @@ class AuthLocalRepositoryImpl implements AuthRepository {
     required String email,
     required String password,
     required String userType,
+    String? adminCode,
   }) async {
     try {
       final isConnected = await _networkInfo.isConnected;
@@ -94,16 +102,37 @@ class AuthLocalRepositoryImpl implements AuthRepository {
         throw const core_exceptions.NetworkException('No internet connection');
       }
 
-      return _handleSync<AuthEntity>(
-        action: () => _localDataSource.login(
-          email: email,
-          password: password,
-          userType: userType,
-        ),
-        toJson: _entityToJson,
-        operation: SyncOperation.update,
-        id: email,
+      // Validate admin code for restaurant login
+      if (userType.toLowerCase() == 'restaurant' &&
+          (adminCode == null || adminCode.isEmpty)) {
+        return const Left(
+            ValidationFailure('Admin code is required for restaurant login'));
+      }
+
+      // Create request data
+      final requestData = {
+        'email': email.trim().toLowerCase(),
+        'password': password,
+        'role': userType,
+        if (adminCode != null) 'adminCode': adminCode,
+      };
+
+      // Make remote login request
+      final response = await _dio.post(
+        ApiEndpoints.login,
+        data: requestData,
       );
+
+      if (response.statusCode == 200 && response.data['data'] != null) {
+        final authModel = AuthApiModel.fromJson(response.data['data']);
+
+        // Save user data locally
+        await _localDataSource.updateUser(authModel.toEntity());
+
+        return Right(authModel.toEntity());
+      } else {
+        return const Left(AuthFailure('Login failed'));
+      }
     } on core_exceptions.NetworkException catch (e) {
       return Left(NetworkFailure(e.message));
     } catch (e) {
@@ -434,5 +463,71 @@ class AuthLocalRepositoryImpl implements AuthRepository {
     } catch (e) {
       return Left(ServerFailure(e.toString()));
     }
+  }
+
+  @override
+  Future<Either<Failure, List<RestaurantEntity>>> getRestaurants() async {
+    try {
+      final isConnected = await _networkInfo.isConnected;
+      if (!isConnected) {
+        throw const core_exceptions.NetworkException('No internet connection');
+      }
+
+      return _handleSync<List<RestaurantEntity>>(
+        action: () async {
+          final restaurants = await _localDataSource.getAllRestaurants();
+
+          // Convert AuthEntity to RestaurantEntity
+          return restaurants
+              .map((auth) => RestaurantEntity(
+                    id: auth.id ?? '',
+                    // username: auth.profile.username,
+                    restaurantName: auth.profile.additionalInfo['restaurant']
+                            ?['name'] ??
+                        '',
+                    location: auth.profile.additionalInfo['restaurant']
+                            ?['location'] ??
+                        '',
+                    contactNumber: auth.profile.additionalInfo['restaurant']
+                            ?['contactNumber'] ??
+                        '',
+                    quote: auth.profile.additionalInfo['restaurant']
+                            ?['quote'] ??
+                        '',
+                    status: auth.status.toString(), username: '',
+                  ))
+              .toList();
+        },
+        toJson: (restaurants) => {
+          'restaurants': restaurants.map((r) => r.toJson()).toList(),
+        },
+        operation: SyncOperation.read,
+      );
+    } on core_exceptions.NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } on core_exceptions.CacheException catch (e) {
+      return Left(CacheFailure(e.message));
+    } on AuthException catch (e) {
+      return Left(AuthFailure(e.message));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, UserProfile>> getUserProfile(
+      {required String userId}) {
+    // TODO: implement getUserProfile
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failure, UserProfile>> updateUserProfile(
+      {String? name,
+      String? email,
+      String? phoneNumber,
+      String? profilePicture}) {
+    // TODO: implement updateUserProfile
+    throw UnimplementedError();
   }
 }

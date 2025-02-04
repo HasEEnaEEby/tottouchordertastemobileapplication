@@ -27,13 +27,13 @@ Map<String, dynamic> _$AuthApiModelToJson(AuthApiModel instance) =>
       'token': instance.token,
       'refreshToken': instance.refreshToken,
       'isEmailVerified': instance.isEmailVerified,
-      'profile': instance.profile,
-      'metadata': instance.metadata,
+      'profile': instance.profile.toJson(),
+      'metadata': instance.metadata.toJson(),
     };
 
 UserProfileModel _$UserProfileModelFromJson(Map<String, dynamic> json) =>
     UserProfileModel(
-      username: json['username'] as String?,
+      username: json['username'] as String? ?? '',
       displayName: json['displayName'] as String?,
       phoneNumber: json['phoneNumber'] as String?,
       profileImage: json['profileImage'] as String?,
