@@ -1,110 +1,81 @@
-// lib/core/config/app_colors.dart
-
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Primary Colors
-  static const Color primary = Color(0xFF2A9D8F); // Teal - Main brand color
-  static const Color primaryLight =
-      Color(0xFF4DB6A9); // Light Teal - Secondary actions
-  static const Color primaryDark =
-      Color(0xFF1E7268); // Dark Teal - Pressed states
+  // Primary Brand Colors
+  static const Color primary = Color(0xFFC62828);
+  static const Color primaryLight = Color(0xFFE57373);
+  static const Color primaryDark = Color(0xFF8E0000);
 
-  // Secondary Colors
-  static const Color secondary = Color(0xFFE76F51); // Coral - Accents and CTAs
-  static const Color secondaryLight =
-      Color(0xFFF4A261); // Light Coral - Highlights
-  static const Color secondaryDark =
-      Color(0xFFCC4E31); // Dark Coral - Pressed states
+  // Secondary Brand Colors
+  static const Color secondary = Color(0xFF212121);
+  static const Color secondaryLight = Color(0xFF424242);
+  static const Color secondaryDark = Color(0xFF000000);
 
-  // Neutral Colors
-  static const Color background = Color(0xFFF8F9FA); // Light Gray - Background
-  static const Color surface = Color(0xFFFFFFFF); // White - Surface
-  static const Color cardBackground =
-      Color(0xFFFFFFFF); // White - Card Background
+  // Accent and Backgrounds
+  static const Color accent = Color(0xFFF8F8F8);
+  static const Color background = Color(0xFFFFFFFF);
+  static const Color surface = Color(0xFFFFFFFF);
+  static const Color cardBackground = Color(0xFFF2F2F2);
 
   // Text Colors
-  static const Color textPrimary =
-      Color(0xFF264653); // Dark Blue - Primary Text
-  static const Color textSecondary =
-      Color(0xFF546E7A); // Medium Gray - Secondary Text
-  static const Color textHint = Color(0xFF90A4AE); // Light Gray - Hint Text
+  static const Color textPrimary = Color(0xFF212121);
+  static const Color textSecondary = Color(0xFF757575);
+  static const Color textHint = Color(0xFFBDBDBD);
 
   // Status Colors
-  static const Color success = Color(0xFF4CAF50); // Green - Success
-  static const Color error = Color(0xFFDC3545); // Red - Error
-  static const Color warning = Color(0xFFFFC107); // Yellow - Warning
-  static const Color info = Color(0xFF0288D1); // Blue - Information
+  static const Color success = Color(0xFF43A047);
+  static const Color error = Color(0xFFD32F2F);
+  static const Color warning = Color(0xFFFFA000);
+  static const Color info = Color(0xFF0288D1);
 
   // Order Status Colors
-  static const Color orderPending =
-      Color(0xFFFFA726); // Orange - Pending Orders
-  static const Color orderPreparing = Color(0xFF42A5F5); // Blue - Preparing
-  static const Color orderReady = Color(0xFF66BB6A); // Green - Ready
-  static const Color orderServed = Color(0xFF8E24AA); // Purple - Served
-  static const Color orderCompleted = Color(0xFF78909C); // Gray - Completed
-  static const Color orderCancelled = Color(0xFFEF5350); // Red - Cancelled
+  static const Color orderPending = primary;
+  static const Color orderPreparing = secondaryLight;
+  static const Color orderReady = Color(0xFF4CAF50);
+  static const Color orderServed = Color(0xFF6A1B9A);
+  static const Color orderCompleted = Color(0xFF78909C);
+  static const Color orderCancelled = error;
 
   // Dividers and Borders
-  static const Color divider = Color(0xFFE0E0E0); // Light Gray - Dividers
-  static const Color border = Color(0xFFBDBDBD); // Medium Gray - Borders
+  static const Color divider = Color(0xFFDFDFDF);
+  static const Color border = Color(0xFFBDBDBD);
 
-  // Gradients
+  // Gradients for headers, buttons, etc.
   static const List<Color> primaryGradient = [
-    Color(0xFF2A9D8F),
-    Color(0xFF4DB6A9),
+    primary,
+    primaryLight,
   ];
 
   static const List<Color> secondaryGradient = [
-    Color(0xFFE76F51),
-    Color(0xFFF4A261),
+    secondary,
+    secondaryLight,
   ];
 
-  // Transparent Colors
-
+  // Shadows and Overlays
   static Color shadowColor = const Color(0xFF000000).withOpacity(0.1);
   static Color overlayColor = const Color(0xFF000000).withOpacity(0.5);
 
   // Special Purpose Colors
-  static const Color vegetarianBadge = Color(0xFF66BB6A); // Green for Veg Items
-  static const Color nonVegetarianBadge = Color(0xFFEF5350); // Red for Non-Veg
-  static const Color spicyIndicator = Color(0xFFFF5722); // Orange for Spicy
+  static const Color vegetarianBadge = Color(0xFF66BB6A); // Green for veg items
+  static const Color nonVegetarianBadge = error; // Red for non-veg
+  static const Color spicyIndicator =
+      Color(0xFFB71C1C); // Intense red for spicy
   static const Color popularDishBadge =
-      Color(0xFFFFD700); // Gold for Popular Items
+      Color(0xFFFFD700); // Gold for popular items
 
-  // Method to get order status color
-  static Color getOrderStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return orderPending;
-      case 'preparing':
-        return orderPreparing;
-      case 'ready':
-        return orderReady;
-      case 'served':
-        return orderServed;
-      case 'completed':
-        return orderCompleted;
-      case 'cancelled':
-        return orderCancelled;
-      default:
-        return textSecondary;
-    }
-  }
-
-  // Material Color for primary swatch
+  // MaterialColor for primary swatch (useful for themes).
   static MaterialColor primarySwatch = MaterialColor(
     primary.value,
     <int, Color>{
-      50: primary.withValues(alpha: 0.1),
-      100: primary.withValues(alpha: 0.2),
-      200: primary.withValues(alpha: 0.3),
-      300: primary.withValues(alpha: 0.4),
-      400: primary.withValues(alpha: 0.5),
-      500: primary.withValues(alpha: 0.6),
-      600: primary.withValues(alpha: 0.7),
-      700: primary.withValues(alpha: 0.8),
-      800: primary.withValues(alpha: 0.9),
+      50: primary.withOpacity(0.1),
+      100: primary.withOpacity(0.2),
+      200: primary.withOpacity(0.3),
+      300: primary.withOpacity(0.4),
+      400: primary.withOpacity(0.5),
+      500: primary.withOpacity(0.6),
+      600: primary.withOpacity(0.7),
+      700: primary.withOpacity(0.8),
+      800: primary.withOpacity(0.9),
       900: primary,
     },
   );

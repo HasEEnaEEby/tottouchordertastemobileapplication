@@ -135,6 +135,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
       final restaurants = users
           .where((user) =>
               user.userType.toLowerCase() == 'restaurant' &&
+              // ignore: unrelated_type_equality_checks
               user.status == AuthStatus.authenticated)
           .toList();
 
