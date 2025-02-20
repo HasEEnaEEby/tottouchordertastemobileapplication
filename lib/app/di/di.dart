@@ -8,6 +8,7 @@ import 'package:logging/logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tottouchordertastemobileapplication/app/constants/api_endpoints.dart';
 import 'package:tottouchordertastemobileapplication/app/services/sync_service.dart';
+import 'package:tottouchordertastemobileapplication/app/shared_prefs/shared_preferences.dart';
 import 'package:tottouchordertastemobileapplication/core/common/internet_checker.dart';
 import 'package:tottouchordertastemobileapplication/core/network/hive_box_manager.dart';
 import 'package:tottouchordertastemobileapplication/core/network/hive_service.dart';
@@ -22,6 +23,10 @@ import 'package:tottouchordertastemobileapplication/features/auth/domain/use_cas
 import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/login/login_bloc.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/signup/register_bloc.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/sync/sync_bloc.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_dashboard/data/data_source/remote_data_source/customer_dashboard_remote_datasource.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_dashboard/data/repository/customer_dashboard_repository_impl.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_dashboard/domain/repository/customer_dashboard_repository.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_dashboard/domain/use_case/get_all_restaurants_usecase.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/view_model/customer_dashboard/customer_dashboard_bloc.dart';
 import 'package:tottouchordertastemobileapplication/features/splash_onboarding_cubit.dart';
 
@@ -48,12 +53,13 @@ Future<void> _initCore() async {
   if (!Hive.isAdapterRegistered(4)) {
     Hive.registerAdapter(SyncHiveModelAdapter());
   }
-  if (!Hive.isAdapterRegistered(5)) {
-    Hive.registerAdapter(SyncOperationAdapter());
-  }
 
-  // Shared Preferences
+  // 🔹 Register SharedPreferences & SharedPreferencesService
   final sharedPreferences = await SharedPreferences.getInstance();
+  final sharedPreferencesService = SharedPreferencesService(sharedPreferences);
+  getIt.registerSingleton<SharedPreferencesService>(sharedPreferencesService);
+
+  // 🔹 Register SharedPreferences instance (optional, if needed separately)
   getIt.registerSingleton<SharedPreferences>(sharedPreferences);
 
   // Logger
@@ -61,9 +67,11 @@ Future<void> _initCore() async {
 }
 
 Future<void> _initExternalDependencies() async {
-  await initNetwork();
+  // Internet Connection Checker
+  getIt.registerLazySingleton<InternetConnectionChecker>(
+      () => InternetConnectionChecker());
 
-  // Register Dio
+  // Register Dio with proper options
   getIt.registerLazySingleton<Dio>(() {
     final dio = Dio(BaseOptions(
       baseUrl: ApiEndpoints.baseUrl,
@@ -80,7 +88,6 @@ Future<void> _initExternalDependencies() async {
       requestHeader: true,
       responseHeader: true,
     ));
-
     return dio;
   });
 }
@@ -113,21 +120,31 @@ Future<void> _initServices() async {
 }
 
 Future<void> _initDataSources() async {
-  // Local Data Source
+  // Auth Local Data Source
   getIt.registerLazySingleton<AuthLocalDataSource>(
     () => AuthLocalDataSourceImpl(hiveService: getIt<HiveService>()),
   );
 
-  // Remote Data Source
+  // ✅ Fixed: Added 'prefs' argument
   getIt.registerLazySingleton<AuthRemoteDataSource>(
     () => AuthRemoteDataSource(
       dio: getIt<Dio>(),
       networkInfo: getIt<NetworkInfo>(),
+      prefs: getIt<SharedPreferencesService>(),
+    ),
+  );
+
+  // ✅ Fixed: Added 'prefs' argument
+  getIt.registerLazySingleton<CustomerDashboardRemoteDataSource>(
+    () => CustomerDashboardRemoteDataSourceImpl(
+      dio: getIt<Dio>(),
+      prefs: getIt<SharedPreferencesService>(),
     ),
   );
 }
 
 Future<void> _initRepositories() async {
+  // Auth Repository
   getIt.registerLazySingleton<AuthRepository>(
     () => AuthLocalRepositoryImpl(
       localDataSource: getIt<AuthLocalDataSource>(),
@@ -136,9 +153,17 @@ Future<void> _initRepositories() async {
       dio: getIt<Dio>(),
     ),
   );
+
+  // Customer Dashboard Repository
+  getIt.registerLazySingleton<CustomerDashboardRepository>(
+    () => CustomerDashboardRepositoryImpl(
+      remoteDataSource: getIt<CustomerDashboardRemoteDataSource>(),
+    ),
+  );
 }
 
 Future<void> _initUseCases() async {
+  // Auth Use Cases
   getIt.registerLazySingleton(() => LoginUseCase(
         repository: getIt<AuthRepository>(),
       ));
@@ -146,21 +171,26 @@ Future<void> _initUseCases() async {
   getIt.registerLazySingleton(() => RegisterUserUseCase(
         repository: getIt<AuthRepository>(),
       ));
+
+  // Customer Dashboard Use Case
+  getIt.registerLazySingleton(() => GetAllRestaurantsUseCase(
+        getIt<CustomerDashboardRepository>(),
+      ));
 }
 
 Future<void> _initBlocs() async {
-  // First register SyncBloc as it has no dependencies
+  // Sync Bloc
   getIt.registerFactory(() => SyncBloc(
         syncService: getIt<SyncService>(),
         networkInfo: getIt<NetworkInfo>(),
       ));
 
-  // Register CustomerDashboardBloc
+  // Customer Dashboard Bloc
   getIt.registerFactory(() => CustomerDashboardBloc(
-        authRepository: getIt<AuthRepository>(),
+        getAllRestaurantsUseCase: getIt<GetAllRestaurantsUseCase>(),
       ));
 
-  // Register RegisterBloc
+  // Register Bloc
   getIt.registerFactory(() => RegisterBloc(
         repository: getIt<AuthRepository>(),
         registerUseCase: getIt<RegisterUserUseCase>(),
@@ -168,7 +198,7 @@ Future<void> _initBlocs() async {
         syncBloc: getIt<SyncBloc>(),
       ));
 
-  // Register LoginBloc
+  // Login Bloc
   getIt.registerFactory(() => LoginBloc(
         authRepository: getIt<AuthRepository>(),
         loginUseCase: getIt<LoginUseCase>(),
@@ -176,11 +206,11 @@ Future<void> _initBlocs() async {
         syncBloc: getIt<SyncBloc>(),
       ));
 
-  // Register SplashOnboardingCubit
+  // Splash Onboarding Cubit
   getIt.registerFactory(() => SplashOnboardingCubit());
 }
 
-// Debug Bloc Observer
+// Optional: Debug Bloc Observer
 class AppBlocObserver extends BlocObserver {
   @override
   void onCreate(BlocBase bloc) {

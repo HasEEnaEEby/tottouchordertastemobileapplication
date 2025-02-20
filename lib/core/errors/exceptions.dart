@@ -1,3 +1,6 @@
+import 'package:tottouchordertastemobileapplication/core/errors/failures.dart';
+
+/// Base Exception class used throughout the app.
 abstract class AppException implements Exception {
   final String message;
   final int? statusCode;
@@ -10,6 +13,7 @@ abstract class AppException implements Exception {
       : message;
 }
 
+/// Authentication related exceptions.
 class AuthException extends AppException {
   const AuthException(super.message, [super.statusCode]);
 
@@ -26,6 +30,7 @@ class AuthException extends AppException {
       const AuthException('Email not verified', 403);
 }
 
+/// Network-related exceptions.
 class NetworkException extends AppException {
   const NetworkException(super.message, [super.statusCode]);
 
@@ -39,6 +44,7 @@ class NetworkException extends AppException {
       const NetworkException('Request cancelled', 499);
 }
 
+/// Cache-related exceptions.
 class CacheException extends AppException {
   const CacheException(super.message, [super.statusCode]);
 
@@ -49,6 +55,7 @@ class CacheException extends AppException {
       const CacheException('Invalid data format in cache', 400);
 }
 
+/// Validation exceptions.
 class ValidationException extends AppException {
   const ValidationException(super.message, [super.statusCode]);
 
@@ -62,6 +69,7 @@ class ValidationException extends AppException {
       ValidationException('Required field missing: $field', 400);
 }
 
+/// Server exceptions.
 class ServerException extends AppException {
   const ServerException(super.message, int super.statusCode);
 
@@ -78,6 +86,7 @@ class ServerException extends AppException {
       const ServerException('Service temporarily unavailable', 503);
 }
 
+/// Database exceptions.
 class DatabaseException extends AppException {
   const DatabaseException(super.message, [super.statusCode]);
 
@@ -88,7 +97,7 @@ class DatabaseException extends AppException {
       const DatabaseException('Duplicate entry', 409);
 }
 
-// New exceptions for specific scenarios
+/// Sync exceptions.
 class SyncException extends AppException {
   const SyncException(super.message, [super.statusCode]);
 
@@ -99,6 +108,7 @@ class SyncException extends AppException {
       const SyncException('Data conflict detected', 409);
 }
 
+/// File-related exceptions.
 class FileException extends AppException {
   const FileException(super.message, [super.statusCode]);
 
@@ -110,4 +120,26 @@ class FileException extends AppException {
 
   factory FileException.sizeLimitExceeded() =>
       const FileException('File size limit exceeded', 413);
+}
+
+/// Optionally, you can add a helper to map exceptions to failures:
+Failure mapExceptionToFailure(Exception e) {
+  if (e is AuthException) {
+    return AuthFailure(e.message);
+  } else if (e is NetworkException) {
+    return NetworkFailure(e.message);
+  } else if (e is CacheException) {
+    return CacheFailure(e.message);
+  } else if (e is ValidationException) {
+    return ValidationFailure(e.message);
+  } else if (e is ServerException) {
+    return ServerFailure(e.message);
+  } else if (e is DatabaseException) {
+    return DatabaseFailure(e.message);
+  } else if (e is SyncException) {
+    return ServerFailure(e.message); // Or create a specific SyncFailure.
+  } else if (e is FileException) {
+    return ServerFailure(e.message); // Or create a specific FileFailure.
+  }
+  return const ServerFailure('Unexpected error occurred');
 }

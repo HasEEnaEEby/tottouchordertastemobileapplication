@@ -4,6 +4,7 @@ import 'package:get_it/get_it.dart';
 import 'package:logging/logging.dart';
 import 'package:tottouchordertastemobileapplication/core/common/internet_checker.dart';
 import 'package:tottouchordertastemobileapplication/core/config/app_theme.dart';
+import 'package:tottouchordertastemobileapplication/core/theme/theme_cubit.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/login/login_bloc.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/signup/register_bloc.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/sync/sync_bloc.dart';
@@ -19,7 +20,6 @@ class App extends StatefulWidget {
 
 class _AppState extends State<App> {
   final Logger _logger = Logger('App');
-  bool isDarkMode = false;
   late NetworkInfo _networkInfo;
 
   @override
@@ -56,6 +56,8 @@ class _AppState extends State<App> {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
+        // Provide the ThemeCubit globally so it can be accessed in the widget tree.
+        BlocProvider<ThemeCubit>(create: (_) => ThemeCubit()),
         BlocProvider<SplashOnboardingCubit>(
           create: (context) => GetIt.instance<SplashOnboardingCubit>(),
         ),
@@ -69,26 +71,25 @@ class _AppState extends State<App> {
           create: (context) => GetIt.instance<SyncBloc>(),
         ),
       ],
-      child: MaterialApp(
-        title: 'TOT Restaurant Ordering',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
-        home: const FlashScreen(),
-        builder: (context, child) {
-          return ScrollConfiguration(
-            behavior: const ScrollBehavior(),
-            child: child!,
+      // Listen to ThemeCubit changes and rebuild MaterialApp accordingly.
+      child: BlocBuilder<ThemeCubit, ThemeMode>(
+        builder: (context, themeMode) {
+          return MaterialApp(
+            title: 'TOT Restaurant Ordering',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: themeMode,
+            home: const FlashScreen(),
+            builder: (context, child) {
+              return ScrollConfiguration(
+                behavior: const ScrollBehavior(),
+                child: child!,
+              );
+            },
           );
         },
       ),
     );
-  }
-
-  void toggleTheme() {
-    setState(() {
-      isDarkMode = !isDarkMode;
-    });
   }
 }
