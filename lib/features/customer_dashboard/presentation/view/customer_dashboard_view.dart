@@ -1,3 +1,81 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get_it/get_it.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/view_model/customer_dashboard/customer_dashboard_bloc.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/view_model/customer_dashboard/customer_dashboard_event.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/view_model/customer_dashboard/customer_dashboard_state.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/widget/custom_bottom_navigation_bar.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/widget/dashboard_content.dart';
+
+class CustomerDashboardView extends StatefulWidget {
+  final String userName;
+
+  const CustomerDashboardView({super.key, required this.userName});
+
+  @override
+  CustomerDashboardViewState createState() => CustomerDashboardViewState();
+}
+
+class CustomerDashboardViewState extends State<CustomerDashboardView> {
+  late final CustomerDashboardBloc _bloc;
+
+  @override
+  void initState() {
+    super.initState();
+    // Retrieve the bloc instance via DI (GetIt)
+    _bloc = GetIt.I<CustomerDashboardBloc>()..add(LoadRestaurantsEvent());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider.value(
+      value: _bloc,
+      child: Scaffold(
+        body: BlocConsumer<CustomerDashboardBloc, CustomerDashboardState>(
+          listener: (context, state) {
+            if (state is CustomerDashboardError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.message),
+                  behavior: SnackBarBehavior.floating,
+                  backgroundColor: Colors.red.shade800,
+                  action: SnackBarAction(
+                    label: 'Dismiss',
+                    textColor: Colors.white,
+                    onPressed: () {},
+                  ),
+                ),
+              );
+            }
+          },
+          builder: (context, state) {
+            return DashboardContent(
+              state: state,
+              userName: widget.userName,
+            );
+          },
+        ),
+        bottomNavigationBar: const CustomBottomNavigationBar(),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _bloc.close();
+    super.dispose();
+  }
+}
+
+
+
+
+
+
+
+
+
+
 // import 'package:flutter/material.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart';
 // import 'package:get_it/get_it.dart';
@@ -602,335 +680,3 @@
 //     );
 //   }
 // }
-
-import 'dart:io'; // Import the file package to handle image files
-
-import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:get_it/get_it.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:tottouchordertastemobileapplication/features/customer/customer_profile.dart';
-import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/view_model/customer_dashboard/customer_dashboard_bloc.dart';
-import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/view_model/customer_dashboard/customer_dashboard_event.dart';
-import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/view_model/customer_dashboard/customer_dashboard_state.dart';
-
-class CustomerDashboardView extends StatefulWidget {
-  final String userName;
-
-  const CustomerDashboardView({
-    super.key,
-    required this.userName,
-  });
-
-  @override
-  _CustomerDashboardViewState createState() => _CustomerDashboardViewState();
-}
-
-class _CustomerDashboardViewState extends State<CustomerDashboardView> {
-  late CustomerDashboardBloc _bloc;
-
-  // Static Profile Data
-  final CustomerProfile staticProfile = CustomerProfile(
-    username: "hkce",
-    email: "hkce@example.com",
-    phoneNumber: "9841178152",
-    isEmailVerified: true,
-    createdAt: DateTime(2023, 5, 10),
-    updatedAt: DateTime(2024, 1, 15),
-    role: "Customer",
-    profileImage: "",
-    id: '',
-  );
-
-  // Add a variable to hold the picked image
-  File? _pickedImage;
-
-  @override
-  void initState() {
-    super.initState();
-    _bloc = GetIt.I<CustomerDashboardBloc>()..add(LoadRestaurantsEvent());
-  }
-
-  @override
-  void dispose() {
-    _bloc.close();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocProvider.value(
-      value: _bloc,
-      child: BlocConsumer<CustomerDashboardBloc, CustomerDashboardState>(
-        listener: (context, state) {
-          if (state is CustomerDashboardError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)),
-            );
-          }
-        },
-        builder: (context, state) {
-          return Scaffold(
-            body: _buildBody(context, state),
-            bottomNavigationBar: _buildBottomNavigationBar(context, state),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildBody(BuildContext context, CustomerDashboardState state) {
-    if (state is CustomerDashboardLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (state is CustomerDashboardError) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('Error: ${state.message}'),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                context
-                    .read<CustomerDashboardBloc>()
-                    .add(LoadRestaurantsEvent());
-              },
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (state is CustomerDashboardTabChanged) {
-      return _getPageForIndex(state.selectedIndex, context);
-    }
-
-    return _getPageForIndex(0, context);
-  }
-
-  Widget _getPageForIndex(int index, BuildContext context) {
-    switch (index) {
-      case 0:
-        return _buildRestaurantListScreen(context);
-      case 1:
-        return _buildCustomerProfileScreen();
-      default:
-        return _buildRestaurantListScreen(context);
-    }
-  }
-
-  Widget _buildRestaurantListScreen(BuildContext context) {
-    final state = context.watch<CustomerDashboardBloc>().state;
-
-    if (state is! RestaurantsLoaded) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Restaurants'),
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          context.read<CustomerDashboardBloc>().add(LoadRestaurantsEvent());
-        },
-        child: ListView.builder(
-          itemCount: state.restaurants.length,
-          itemBuilder: (context, index) {
-            final restaurant = state.restaurants[index];
-            return Card(
-              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: ListTile(
-                leading: const CircleAvatar(
-                  child: Icon(Icons.restaurant),
-                ),
-                title: Text(
-                  restaurant.restaurantName,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                subtitle: Text(restaurant.location),
-                trailing: const Icon(Icons.arrow_forward_ios),
-                onTap: () {},
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCustomerProfileScreen() {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-          // Added SingleChildScrollView for scrolling
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildProfilePictureSection(),
-              const SizedBox(height: 20),
-              _buildPersonalInfoCard(),
-              const SizedBox(height: 20),
-              _buildAccountDetailsCard(),
-              const SizedBox(height: 20),
-              _buildLogoutButton(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProfilePictureSection() {
-    return GestureDetector(
-      onTap: () => _pickProfilePicture(),
-      child: CircleAvatar(
-        radius: 70,
-        backgroundImage: _pickedImage != null
-            ? FileImage(_pickedImage!) // Show picked image
-            : (staticProfile.profileImage?.isNotEmpty == true
-                ? NetworkImage(staticProfile.profileImage!)
-                : null),
-        child: _pickedImage == null &&
-                (staticProfile.profileImage?.isEmpty ?? true)
-            ? const Icon(Icons.person, size: 70)
-            : null,
-      ),
-    );
-  }
-
-  Widget _buildPersonalInfoCard() {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Personal Information',
-                style: Theme.of(context).textTheme.titleMedium),
-            const Divider(),
-            _buildProfileInfoRow(
-                icon: Icons.person,
-                label: 'Username',
-                value: staticProfile.username),
-            _buildProfileInfoRow(
-                icon: Icons.email, label: 'Email', value: staticProfile.email),
-            _buildProfileInfoRow(
-                icon: Icons.phone,
-                label: 'Phone',
-                value: staticProfile.phoneNumber ?? 'Not provided'),
-            _buildProfileInfoRow(
-                icon: Icons.verified,
-                label: 'Email Verified',
-                value: staticProfile.isEmailVerified ? 'Yes' : 'No'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAccountDetailsCard() {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Account Details',
-                style: Theme.of(context).textTheme.titleMedium),
-            const Divider(),
-            _buildProfileInfoRow(
-                icon: Icons.calendar_today,
-                label: 'Joined',
-                value: _formatDate(staticProfile.createdAt)),
-            _buildProfileInfoRow(
-                icon: Icons.update,
-                label: 'Last Updated',
-                value: _formatDate(staticProfile.updatedAt)),
-            _buildProfileInfoRow(
-                icon: Icons.settings, label: 'Role', value: staticProfile.role),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBottomNavigationBar(
-      BuildContext context, CustomerDashboardState state) {
-    return BottomNavigationBar(
-      currentIndex:
-          state is CustomerDashboardTabChanged ? state.selectedIndex : 0,
-      onTap: (index) {
-        context
-            .read<CustomerDashboardBloc>()
-            .add(CustomerDashboardTabChangedEvent(index));
-      },
-      items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.restaurant),
-          label: 'Restaurants',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.person),
-          label: 'Profile',
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLogoutButton() {
-    return ElevatedButton.icon(
-      onPressed: () {},
-      icon: const Icon(Icons.logout),
-      label: const Text('Logout'),
-      style: ElevatedButton.styleFrom(
-        foregroundColor: Colors.white,
-        backgroundColor: Colors.red,
-        minimumSize: const Size(double.infinity, 50),
-      ),
-    );
-  }
-
-  Widget _buildProfileInfoRow(
-      {required IconData icon, required String label, required String value}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.blue),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(value, style: const TextStyle(fontSize: 16)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
-  }
-
-  Future<void> _pickProfilePicture() async {
-    final pickedFile =
-        await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() {
-        _pickedImage = File(pickedFile.path);
-      });
-    }
-  }
-}
