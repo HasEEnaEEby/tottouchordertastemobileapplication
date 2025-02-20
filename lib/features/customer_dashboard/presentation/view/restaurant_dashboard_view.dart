@@ -7,10 +7,11 @@ class RestaurantDashboardView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Restaurant Dashboard'),
+        title: const Text('Restaurant Dashboard',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout, color: Colors.redAccent),
             onPressed: () {
               // TODO: Implement logout functionality
             },
@@ -19,8 +20,10 @@ class RestaurantDashboardView extends StatelessWidget {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: GridView.count(
+          crossAxisCount: 2,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
           children: [
             _buildDashboardCard(
               icon: Icons.restaurant_menu,
@@ -29,7 +32,6 @@ class RestaurantDashboardView extends StatelessWidget {
                 // TODO: Navigate to Menu Management Screen
               },
             ),
-            const SizedBox(height: 16),
             _buildDashboardCard(
               icon: Icons.receipt_long,
               title: 'View Orders',
@@ -37,7 +39,6 @@ class RestaurantDashboardView extends StatelessWidget {
                 // TODO: Navigate to Orders Screen
               },
             ),
-            const SizedBox(height: 16),
             _buildDashboardCard(
               icon: Icons.analytics,
               title: 'Analytics & Reports',
@@ -45,7 +46,6 @@ class RestaurantDashboardView extends StatelessWidget {
                 // TODO: Navigate to Analytics Screen
               },
             ),
-            const SizedBox(height: 16),
             _buildDashboardCard(
               icon: Icons.settings,
               title: 'Settings',
@@ -67,20 +67,34 @@ class RestaurantDashboardView extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Card(
-        elevation: 4,
+        elevation: 6,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
         ),
-        child: Padding(
+        child: Container(
           padding: const EdgeInsets.all(16.0),
-          child: Row(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              colors: [Colors.orange.shade300, Colors.orange.shade600],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(icon, size: 32, color: Colors.orange),
-              const SizedBox(width: 16),
+              Icon(icon, size: 40, color: Colors.white),
+              const SizedBox(height: 12),
               Text(
                 title,
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
             ],
           ),

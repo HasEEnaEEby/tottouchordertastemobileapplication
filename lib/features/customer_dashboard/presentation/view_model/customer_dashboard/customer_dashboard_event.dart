@@ -35,24 +35,15 @@ class UpdateProfileEvent extends CustomerDashboardEvent {
   List<Object?> get props => [name, email, phoneNumber, profilePicture];
 }
 
-class ChangeTabEvent extends CustomerDashboardEvent {
-  final int index;
+class TabChangedEvent extends CustomerDashboardEvent {
+  final int tabIndex;
 
-  const ChangeTabEvent({required this.index});
+  const TabChangedEvent({required this.tabIndex});
 
   @override
-  List<Object?> get props => [index];
+  List<Object?> get props => [tabIndex];
 }
 
 class LogoutRequestedEvent extends CustomerDashboardEvent {
   const LogoutRequestedEvent();
-}
-
-class CustomerDashboardTabChangedEvent extends CustomerDashboardEvent {
-  final int selectedIndex;
-
-  const CustomerDashboardTabChangedEvent(this.selectedIndex);
-
-  @override
-  List<Object?> get props => [selectedIndex];
 }
