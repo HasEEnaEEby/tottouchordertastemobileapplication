@@ -1,4 +1,4 @@
-// lib/features/customer_dashboard/domain/repository/customer_dashboard_repository.dart
+// lib/features/customer_dashboard/domain/repository/restaurant_repository.dart
 
 import 'package:dartz/dartz.dart';
 import 'package:tottouchordertastemobileapplication/core/errors/failures.dart';
@@ -6,7 +6,7 @@ import 'package:tottouchordertastemobileapplication/features/customer_dashboard/
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/domain/entity/restaurant_entity.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/domain/entity/table_entity.dart';
 
-abstract class CustomerDashboardRepository {
+abstract class RestaurantRepository {
   Future<Either<Failure, List<RestaurantEntity>>> getAllRestaurants();
   Future<Either<Failure, RestaurantEntity>> getRestaurantDetails(
       String restaurantId);
