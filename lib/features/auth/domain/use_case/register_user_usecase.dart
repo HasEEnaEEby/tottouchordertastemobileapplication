@@ -57,7 +57,7 @@ class RegisterUserUseCase {
     // Password validation
     if (!_isValidPassword(params.password)) {
       return const ValidationFailure(
-        'Password must be at least 6 characters long and contain a mix of letters and numbers',
+        'Password must be at least 8 characters long and contain a mix of letters and numbers',
       );
     }
 
@@ -65,6 +65,12 @@ class RegisterUserUseCase {
     final usernameValidationResult = _validateUsername(params.username);
     if (usernameValidationResult != null) {
       return ValidationFailure(usernameValidationResult);
+    }
+
+    // Phone number validation
+    final phoneValidation = _validatePhoneNumber(params.phoneNumber);
+    if (phoneValidation != null) {
+      return ValidationFailure(phoneValidation);
     }
 
     // User type validation
@@ -94,7 +100,7 @@ class RegisterUserUseCase {
   }
 
   bool _isValidPassword(String password) {
-    if (password.length < 6) return false;
+    if (password.length < 8) return false;
 
     final hasLetter = RegExp(r'[a-zA-Z]').hasMatch(password);
     final hasNumber = RegExp(r'[0-9]').hasMatch(password);
@@ -128,18 +134,28 @@ class RegisterUserUseCase {
     return null;
   }
 
+  String? _validatePhoneNumber(String? phoneNumber) {
+    // Phone number is optional
+    if (phoneNumber == null || phoneNumber.isEmpty) return null;
+
+    final phoneRegex = RegExp(r'^\+?[0-9]{10,14}$');
+    if (!phoneRegex.hasMatch(phoneNumber)) {
+      return 'Please enter a valid phone number';
+    }
+
+    return null;
+  }
+
   String? _validateRestaurantInfo(Map<String, dynamic>? additionalInfo) {
     if (additionalInfo == null) {
       return 'Restaurant information is required';
     }
 
-    // Validate restaurant name
     final restaurantName = additionalInfo['restaurantName'] as String?;
     if (restaurantName == null || restaurantName.isEmpty) {
       return 'Restaurant name is required';
     }
 
-    // Validate location
     final location = additionalInfo['location'] as String?;
     if (location == null || location.isEmpty) {
       return 'Restaurant location is required';

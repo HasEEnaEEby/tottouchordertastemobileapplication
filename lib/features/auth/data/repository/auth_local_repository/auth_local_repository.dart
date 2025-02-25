@@ -16,6 +16,7 @@ import 'package:tottouchordertastemobileapplication/features/auth/domain/reposit
 class AuthLocalRepositoryImpl implements AuthRepository {
   final AuthLocalDataSource _localDataSource;
   final NetworkInfo _networkInfo;
+  
   final SyncService _syncService;
   final Dio _dio;
   static const String entityType = 'auth';
@@ -149,74 +150,73 @@ class AuthLocalRepositoryImpl implements AuthRepository {
     Map<String, dynamic>? additionalInfo,
   }) async {
     try {
+      // Check network connection
+      final isConnected = await _networkInfo.isConnected;
+      if (!isConnected) {
+        throw const core_exceptions.NetworkException('No internet connection');
+      }
+
+      // Input validation
       if (!AuthEntity.isValidEmail(email)) {
         return const Left(ValidationFailure('Invalid email format'));
       }
 
       if (!AuthEntity.isValidPassword(password)) {
         return const Left(ValidationFailure(
-            'Password must be at least 8 characters with letters and numbers'));
+          'Password must be at least 8 characters with letters and numbers',
+        ));
       }
 
+      // Process and validate role-specific data
       final normalizedRole = _normalizeRole(userType);
-      final processedAdditionalInfo = additionalInfo ?? {};
-
       if (normalizedRole == 'restaurant') {
         _validateRestaurantData(
           restaurantName: restaurantName,
           location: location,
           contactNumber: contactNumber,
         );
-        processedAdditionalInfo['restaurant'] = {
-          'name': restaurantName,
-          'location': location,
-          'contactNumber': contactNumber,
-        };
       }
 
-      final processedUsername =
-          username ?? _generateUsername(email, normalizedRole);
-
-      final profile = UserProfile(
-        username: processedUsername,
-        phoneNumber: phoneNumber,
-        additionalInfo: processedAdditionalInfo,
-      );
-
-      final metadata = AuthMetadata(
-        createdAt: DateTime.now(),
-        lastLoginAt: DateTime.now(),
-        lastUpdatedAt: DateTime.now(),
-        securitySettings: const {},
-      );
-
+      // Prepare registration data
       final registrationData = {
-        'email': email,
-        'username': processedUsername,
-        'role': normalizedRole,
+        'email': email.trim().toLowerCase(),
         'password': password,
+        'role': normalizedRole,
+        'username': username ?? email.split('@')[0],
+        if (phoneNumber != null) 'phoneNumber': phoneNumber,
         if (normalizedRole == 'restaurant') ...{
           'restaurantName': restaurantName,
           'location': location,
           'contactNumber': contactNumber,
-        }
+        },
       };
 
-      return _handleSync<AuthEntity>(
-        action: () => _localDataSource.register(
-          email: email,
-          password: password,
-          userType: normalizedRole,
-          profile: profile,
-          metadata: metadata,
-        ),
-        toJson: (_) => registrationData,
-        operation: SyncOperation.create,
+      // Make API call
+      final response = await _dio.post(
+        ApiEndpoints.signup,
+        data: registrationData,
       );
-    } catch (e) {
-      if (e is core_exceptions.ValidationException) {
-        return Left(ValidationFailure(e.message));
+
+      if (response.statusCode == 201 && response.data['data'] != null) {
+        final authModel = AuthApiModel.fromJson(response.data['data']);
+        return Right(authModel.toEntity());
+      } else {
+        return Left(ServerFailure(
+          response.data['message'] ?? 'Registration failed',
+        ));
       }
+    } on core_exceptions.NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } on core_exceptions.ValidationException catch (e) {
+      return Left(ValidationFailure(e.message));
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 409) {
+        return const Left(ValidationFailure('Email already exists'));
+      }
+      return Left(ServerFailure(
+        e.response?.data['message'] ?? 'Registration failed',
+      ));
+    } catch (e) {
       return Left(ServerFailure(e.toString()));
     }
   }
@@ -496,4 +496,89 @@ class AuthLocalRepositoryImpl implements AuthRepository {
     // For now, simply throw unimplemented error.
     throw UnimplementedError('updateUserProfile is not implemented');
   }
+
+  @override
+  Future<Either<Failure, bool>> verifyEmail(String token) async {
+    try {
+      final isConnected = await _networkInfo.isConnected;
+      if (!isConnected) {
+        throw const core_exceptions.NetworkException('No internet connection');
+      }
+
+      final response = await _dio.get(
+        '${ApiEndpoints.verifyEmail}$token',
+      );
+
+      if (response.statusCode == 200) {
+        final currentUser = await _localDataSource.getCurrentUser();
+        if (currentUser != null) {
+          final updatedUser = currentUser.copyWith(
+            isEmailVerified: true,
+            metadata: currentUser.metadata.copyWith(
+              lastUpdatedAt: DateTime.now(),
+            ),
+          );
+
+          return _handleSync<bool>(
+            action: () async {
+              await _localDataSource.updateUser(updatedUser);
+              return true;
+            },
+            toJson: (_) => _entityToJson(updatedUser),
+            operation: SyncOperation.update,
+            id: currentUser.id,
+          );
+        }
+        return const Right(true);
+      } else {
+        return const Left(
+            ValidationFailure('Invalid or expired verification token'));
+      }
+    } on core_exceptions.NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 400) {
+        return const Left(
+            ValidationFailure('Invalid or expired verification token'));
+      }
+      return Left(ServerFailure(
+          e.response?.data['message'] ?? 'Failed to verify email'));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, bool>> resendVerificationEmail(String email) async {
+    try {
+      final isConnected = await _networkInfo.isConnected;
+      if (!isConnected) {
+        throw const core_exceptions.NetworkException('No internet connection');
+      }
+
+      final response = await _dio.post(
+        ApiEndpoints.resendVerification,
+        data: {'email': email},
+      );
+
+      if (response.statusCode == 200) {
+        return const Right(true);
+      } else {
+        final message =
+            response.data['message'] ?? 'Failed to resend verification email';
+        return Left(ServerFailure(message));
+      }
+    } on core_exceptions.NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        return const Left(ValidationFailure('Email not found'));
+      }
+      return Left(ServerFailure(e.response?.data['message'] ??
+          'Failed to resend verification email'));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+  
 }
