@@ -54,4 +54,8 @@ abstract class AuthRepository {
     String? phoneNumber,
     String? profilePicture,
   });
+
+  Future<Either<Failure, bool>> verifyEmail(String token);
+
+  Future<Either<Failure, bool>> resendVerificationEmail(String email);
 }
