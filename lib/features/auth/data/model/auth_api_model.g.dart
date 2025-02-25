@@ -51,11 +51,9 @@ Map<String, dynamic> _$UserProfileModelToJson(UserProfileModel instance) =>
 
 AuthMetadataModel _$AuthMetadataModelFromJson(Map<String, dynamic> json) =>
     AuthMetadataModel(
-      createdAt: AuthMetadataModel._dateFromJson(json['createdAt'] as String?),
-      lastLoginAt:
-          AuthMetadataModel._dateFromJson(json['lastLoginAt'] as String?),
-      lastUpdatedAt:
-          AuthMetadataModel._dateFromJson(json['lastUpdatedAt'] as String?),
+      createdAt: AuthMetadataModel._dateFromJson(json['createdAt']),
+      lastLoginAt: AuthMetadataModel._dateFromJson(json['lastLoginAt']),
+      lastUpdatedAt: AuthMetadataModel._dateFromJson(json['lastUpdatedAt']),
       lastLoginIp: json['lastLoginIp'] as String?,
       securitySettings: json['securitySettings'] as Map<String, dynamic>? ?? {},
     );

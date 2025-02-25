@@ -1,10 +1,8 @@
-// lib/core/errors/failures.dart
-
 import 'package:equatable/equatable.dart';
 
+/// Base Failure class that extends Equatable for easy comparison.
 abstract class Failure extends Equatable {
   final String message;
-
   const Failure(this.message);
 
   @override

@@ -1,40 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:logging/logging.dart';
-import 'package:tottouchordertastemobileapplication/app/services/sync_service.dart';
-import 'package:tottouchordertastemobileapplication/features/auth/data/model/sync_hive_model.dart';
-import 'package:tottouchordertastemobileapplication/features/auth/domain/entity/auth_entity.dart';
-import 'package:tottouchordertastemobileapplication/features/auth/domain/repository/auth_repository.dart';
-import 'package:tottouchordertastemobileapplication/features/auth/domain/use_case/register_user_usecase.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/presentation/view/login_view.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/signup/register_event.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/signup/register_state.dart';
-import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/sync/sync_bloc.dart';
+
+import '../../../domain/repository/auth_repository.dart';
+import '../../../domain/use_case/register_user_usecase.dart';
 
 class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
   final AuthRepository _repository;
   final RegisterUserUseCase _registerUseCase;
-  final SyncService _syncService;
-  final SyncBloc _syncBloc;
   final Logger _logger = Logger('RegisterBloc');
 
   RegisterBloc({
     required AuthRepository repository,
     required RegisterUserUseCase registerUseCase,
-    required SyncService syncService,
-    required SyncBloc syncBloc,
   })  : _repository = repository,
         _registerUseCase = registerUseCase,
-        _syncService = syncService,
-        _syncBloc = syncBloc,
         super(const RegisterInitial()) {
-    // Register event handlers
     on<RegisterUserTypeChanged>(_onUserTypeChanged);
     on<RegisterSubmitted>(_onSubmitted);
     on<NavigateToLoginEvent>(_onNavigateToLogin);
   }
 
-  // Handle user type change event
   void _onUserTypeChanged(
     RegisterUserTypeChanged event,
     Emitter<RegisterState> emit,
@@ -51,19 +40,15 @@ class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
     }
   }
 
-  // Handle navigation to login page
   void _onNavigateToLogin(
     NavigateToLoginEvent event,
     Emitter<RegisterState> emit,
   ) {
-    Navigator.of(event.context).push(
-      MaterialPageRoute(
-        builder: (context) => const LoginView(),
-      ),
+    Navigator.of(event.context).pushReplacement(
+      MaterialPageRoute(builder: (context) => const LoginView()),
     );
   }
 
-  // Handle registration submission
   Future<void> _onSubmitted(
     RegisterSubmitted event,
     Emitter<RegisterState> emit,
@@ -75,38 +60,12 @@ class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
       // Input validation
       final validationError = _validateInput(event);
       if (validationError != null) {
+        _showErrorSnackBar(event.context, validationError);
         emit(RegisterError(
           validationError,
           selectedUserType: event.userType,
         ));
-        ScaffoldMessenger.of(event.context).showSnackBar(
-          SnackBar(
-            content: Text(validationError),
-            backgroundColor: Colors.red,
-          ),
-        );
         return;
-      }
-
-      // Check for existing email
-      try {
-        final emailExists = await _repository.checkEmailExists(event.email);
-        if (emailExists == true) {
-          emit(RegisterError(
-            'This email is already registered. Please use a different email.',
-            selectedUserType: event.userType,
-          ));
-          ScaffoldMessenger.of(event.context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                  'This email is already registered. Please use a different email.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return;
-        }
-      } catch (e) {
-        _logger.warning('Error checking email existence', e);
       }
 
       // Prepare registration parameters
@@ -128,76 +87,35 @@ class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
       // Attempt registration
       final result = await _registerUseCase(params);
 
-      await result.fold(
-        (failure) async {
+      result.fold(
+        (failure) {
           _logger.warning('Registration failed: ${failure.message}');
           final processedError = _processErrorMessage(failure.message);
 
+          _showErrorSnackBar(event.context, processedError);
           emit(RegisterError(
             processedError,
             selectedUserType: event.userType,
           ));
-
-          ScaffoldMessenger.of(event.context).showSnackBar(
-            SnackBar(
-              content: Text(processedError),
-              backgroundColor: Colors.red,
-            ),
-          );
         },
-        (user) async {
-          try {
-            // Queue sync operation
-            await _queueUserSync(user, event);
+        (user) {
+          // Registration successful
+          _showSuccessSnackBar(event.context);
+          emit(RegisterSuccess(user, selectedUserType: event.userType));
 
-            // Trigger sync
-            _syncBloc.add(StartSync());
-
-            // Emit success state
-            emit(RegisterSuccess(user, selectedUserType: event.userType));
-
-            // Show success snackbar
-            ScaffoldMessenger.of(event.context).showSnackBar(
-              const SnackBar(
-                content: Text('Registration successful! Please log in.'),
-                backgroundColor: Colors.green,
-              ),
-            );
-
-            // Navigate to login screen
-            Navigator.of(event.context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => const LoginView(),
-              ),
-            );
-          } catch (syncError) {
-            _logger.warning('Sync error after registration', syncError);
-
-            // Still emit success even if sync fails
-            emit(RegisterSuccess(user, selectedUserType: event.userType));
-
-            // Navigate to login screen
-            Navigator.of(event.context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => const LoginView(),
-              ),
-            );
-          }
+          // Navigate to login screen
+          Navigator.of(event.context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const LoginView()),
+          );
         },
       );
     } catch (e, stackTrace) {
       _logger.severe('Unexpected registration error', e, stackTrace);
 
-      // Show unexpected error snackbar
-      ScaffoldMessenger.of(event.context).showSnackBar(
-        const SnackBar(
-          content: Text('An unexpected error occurred. Please try again.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-
+      const errorMessage = 'An unexpected error occurred. Please try again.';
+      _showErrorSnackBar(event.context, errorMessage);
       emit(RegisterError(
-        'An unexpected error occurred. Please try again.',
+        errorMessage,
         selectedUserType: event.userType,
       ));
     }
@@ -209,11 +127,11 @@ class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
       return 'Passwords do not match';
     }
 
-    if (!AuthEntity.isValidPassword(event.password)) {
+    if (!_isValidPassword(event.password)) {
       return 'Password must be at least 8 characters with letters and numbers';
     }
 
-    if (!AuthEntity.isValidEmail(event.email)) {
+    if (!_isValidEmail(event.email)) {
       return 'Invalid email format';
     }
 
@@ -236,27 +154,17 @@ class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
     return null;
   }
 
-  // Queue user sync after registration
-  Future<void> _queueUserSync(dynamic user, RegisterSubmitted event) async {
-    final syncData = {
-      'id': user.id ?? _generateTempId(),
-      'email': event.email,
-      'username': event.username,
-      'userType': event.userType,
-      'phoneNumber': event.contactNumber,
-      if (event.userType == 'restaurant') ...{
-        'restaurantName': event.restaurantName,
-        'location': event.location,
-        'quote': event.quote,
-      }
-    };
+  // Email validation helper
+  bool _isValidEmail(String email) {
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    return emailRegex.hasMatch(email);
+  }
 
-    await _syncService.queueSync(
-      id: user.id ?? _generateTempId(),
-      data: syncData,
-      entityType: event.userType,
-      operation: SyncOperation.create,
-    );
+  // Password validation helper
+  bool _isValidPassword(String password) {
+    return password.length >= 8 &&
+        password.contains(RegExp(r'\d')) &&
+        password.contains(RegExp(r'[a-zA-Z]'));
   }
 
   // Process and standardize error messages
@@ -282,9 +190,24 @@ class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
     return errorMessage;
   }
 
-  // Generate a temporary ID for sync operations
-  String _generateTempId() {
-    return 'temp_${DateTime.now().millisecondsSinceEpoch}';
+  // Show error snackbar
+  void _showErrorSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
+  // Show success snackbar
+  void _showSuccessSnackBar(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Registration successful! Please log in.'),
+        backgroundColor: Colors.green,
+      ),
+    );
   }
 
   @override

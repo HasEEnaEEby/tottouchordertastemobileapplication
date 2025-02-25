@@ -2,7 +2,9 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:logging/logging.dart';
-import 'package:tottouchordertastemobileapplication/core/common/internet_checker.dart'as network;
+import 'package:tottouchordertastemobileapplication/app/shared_prefs/shared_preferences.dart';
+import 'package:tottouchordertastemobileapplication/core/common/internet_checker.dart'
+    as network;
 
 import '../../../../../app/constants/api_endpoints.dart';
 import '../../../../../core/errors/exceptions.dart';
@@ -14,12 +16,15 @@ class AuthRemoteDataSource implements IAuthDataSource {
   final Dio _dio;
   final network.NetworkInfo _networkInfo;
   final Logger _logger = Logger('AuthRemoteDataSource');
+  final SharedPreferencesService _prefs;
 
   AuthRemoteDataSource({
     required Dio dio,
     required network.NetworkInfo networkInfo,
+    required SharedPreferencesService prefs,
   })  : _dio = dio,
-        _networkInfo = networkInfo;
+        _networkInfo = networkInfo,
+        _prefs = prefs;
 
   @override
   Future<AuthEntity> login({
@@ -43,7 +48,10 @@ class AuthRemoteDataSource implements IAuthDataSource {
 
       if (response.statusCode == 200 && response.data['data'] != null) {
         final authModel = AuthApiModel.fromJson(response.data['data']);
-        _updateAuthToken(authModel);
+
+        // ✅ Save Token to SharedPreferences
+        await _prefs.setAuthToken(authModel.token!);
+
         return authModel.toEntity();
       } else {
         throw AuthException.invalidCredentials();
@@ -267,11 +275,11 @@ class AuthRemoteDataSource implements IAuthDataSource {
     }
   }
 
-Future<void> _checkConnection() async {
-  if (!await _networkInfo.isConnected) {
-    throw NetworkException.noConnection(); 
+  Future<void> _checkConnection() async {
+    if (!await _networkInfo.isConnected) {
+      throw NetworkException.noConnection();
+    }
   }
-}
 
   void _updateAuthToken(AuthApiModel authModel) {
     if (authModel.token == null || authModel.token!.isEmpty) {

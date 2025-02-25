@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:tottouchordertastemobileapplication/core/config/app_colors.dart'
+    as app_colors;
 import 'package:tottouchordertastemobileapplication/core/config/app_theme.dart';
+import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/login/login_bloc.dart';
+import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/login/login_event.dart';
+import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/login/login_state.dart';
+import 'package:tottouchordertastemobileapplication/features/auth/presentation/widget/custom_text_field.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/view/customer_dashboard_view.dart';
-import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/view/restaurant_dashboard_view.dart';
-
-import '../view_model/login/login_bloc.dart';
-import '../view_model/login/login_event.dart';
-import '../view_model/login/login_state.dart';
-import '../view_model/sync/sync_bloc.dart';
-import '../widget/custom_text_field.dart';
-import '../widget/role_card.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -18,20 +16,49 @@ class LoginView extends StatefulWidget {
   State<LoginView> createState() => _LoginViewState();
 }
 
-class _LoginViewState extends State<LoginView> {
+class _LoginViewState extends State<LoginView>
+    with SingleTickerProviderStateMixin {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _adminCodeController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+
+  // Toggling password visibility
   bool _obscurePassword = true;
-  String _selectedUserType = 'customer';
+
+  late AnimationController _animationController;
+
+  @override
+  void initState() {
+    super.initState();
+    // Fade-in animation controller
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    )..forward();
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _adminCodeController.dispose();
+    _animationController.dispose();
     super.dispose();
+  }
+
+  void _showErrorSnackbar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: const TextStyle(fontFamily: AppFonts.medium),
+        ),
+        backgroundColor: app_colors.AppColors.error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
   }
 
   @override
@@ -39,42 +66,60 @@ class _LoginViewState extends State<LoginView> {
     return BlocListener<LoginBloc, LoginState>(
       listener: (context, state) {
         if (state is LoginSuccess) {
-          // Navigation will now be handled in the Bloc
-          if (state.user.userType == 'customer') {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (_) => CustomerDashboardView(
-                  userName: state.user.profile.username ?? '',
-                ),
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => CustomerDashboardView(
+                userName: state.user.profile.username ?? '',
               ),
-            );
-          } else if (state.user.userType == 'restaurant') {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (_) => const RestaurantDashboardView(),
-              ),
-            );
-          }
+            ),
+          );
         } else if (state is LoginError) {
           _showErrorSnackbar(context, state.message);
         }
       },
       child: Scaffold(
+        // Light/white background to contrast with the red wave
+        backgroundColor: Colors.white,
         body: Stack(
           children: [
+            // 1) A tall wave at the top with a red gradient
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: ClipPath(
+                clipper: _TopWaveClipper(),
+                child: Container(
+                  height: 320, // Increased for a more prominent wave
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        app_colors.AppColors.primary,
+                        app_colors.AppColors.secondary,
+                      ],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
             SafeArea(
-              child: SingleChildScrollView(
-                physics: const ClampingScrollPhysics(),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: FadeTransition(
+                opacity: _animationController,
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 32,
+                  ),
                   child: Column(
                     children: [
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 60),
                       _buildHeader(),
-                      const SizedBox(height: 32),
-                      _buildRoleSelector(),
-                      const SizedBox(height: 32),
-                      _buildLoginForm(),
+                      const SizedBox(height: 60),
+                      _buildLoginCard(context),
                       const SizedBox(height: 24),
                       _buildForgotPassword(),
                       const SizedBox(height: 16),
@@ -86,6 +131,8 @@ class _LoginViewState extends State<LoginView> {
                 ),
               ),
             ),
+
+            // 4) Sync status or overlay if needed
             _buildSyncStatus(),
           ],
         ),
@@ -93,151 +140,66 @@ class _LoginViewState extends State<LoginView> {
     );
   }
 
-  Widget _buildSyncStatus() {
-    return BlocBuilder<SyncBloc, SyncState>(
-      buildWhen: (previous, current) => current is SyncInProgress,
-      builder: (context, state) {
-        if (state is SyncInProgress) {
-          return Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              color:
-                  const Color.fromARGB(255, 214, 97, 43).withValues(alpha: 0.1),
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        Color.fromARGB(255, 185, 18, 18),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 8),
-                  Text(
-                    'Syncing data...',
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontFamily: AppFonts.medium,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-        return const SizedBox.shrink();
-      },
-    );
-  }
-
   Widget _buildHeader() {
-    return Column(
+    return const Column(
       children: [
+        // Replace with your TOT brand icon if you have one
+        Icon(
+          Icons.restaurant_menu,
+          color: Colors.white,
+          size: 50,
+        ),
+        SizedBox(height: 12),
         Text(
-          "Welcome Back, ${_selectedUserType == 'customer' ? 'Foodie' : 'Restaurant Partner'}!",
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: AppColors.primary,
-                fontFamily: AppFonts.bold,
-                fontSize: 24,
-              ),
+          "Welcome Back, Foodie!",
           textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          _selectedUserType == 'customer'
-              ? "Sign in to your personalized dining experience"
-              : "Sign in to manage your restaurant dashboard",
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondary,
-                fontFamily: AppFonts.regular,
-              ),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRoleSelector() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        Expanded(
-          child: RoleCard(
-            title: 'Customer',
-            description: 'Access your favorite orders and preferences',
-            icon: Icons.person_outline,
-            isSelected: _selectedUserType == 'customer',
-            onTap: () {
-              setState(() {
-                _selectedUserType = 'customer';
-              });
-            },
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: RoleCard(
-            title: 'Restaurant',
-            description: 'Manage your restaurant dashboard',
-            icon: Icons.restaurant_outlined,
-            isSelected: _selectedUserType == 'restaurant',
-            onTap: () {
-              setState(() {
-                _selectedUserType = 'restaurant';
-              });
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLoginForm() {
-    return BlocBuilder<LoginBloc, LoginState>(
-      builder: (context, state) {
-        return Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
+          style: TextStyle(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
+            fontFamily: AppFonts.bold,
+            fontSize: 24,
           ),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLoginCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(240),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(30),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Form(
+        key: _formKey,
+        child: BlocBuilder<LoginBloc, LoginState>(
+          builder: (context, state) {
+            return Column(
               children: [
+                // Email
                 CustomTextField(
                   controller: _emailController,
                   label: 'Email',
                   hint: 'Enter your email',
                   prefixIcon: const Icon(Icons.email_outlined),
-                  keyboardType: TextInputType.emailAddress,
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
+                    if (value == null || value.trim().isEmpty) {
                       return 'Please enter your email';
                     }
-                    if (!value.contains('@')) {
-                      return 'Please enter a valid email';
-                    }
+                    // Optionally add your own email validation
                     return null;
                   },
                 ),
                 const SizedBox(height: 16),
+
+                // Password + visibility toggle
                 CustomTextField(
                   controller: _passwordController,
                   label: 'Password',
@@ -247,107 +209,93 @@ class _LoginViewState extends State<LoginView> {
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscurePassword
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                      color: AppColors.textSecondary,
+                          ? Icons.visibility
+                          : Icons.visibility_off,
+                      color: app_colors.AppColors.primary,
                     ),
-                    onPressed: () =>
-                        setState(() => _obscurePassword = !_obscurePassword),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your password';
                     }
-                    if (value.length < 6) {
-                      return 'Password must be at least 6 characters';
-                    }
                     return null;
                   },
                 ),
-                if (_selectedUserType == 'restaurant') ...[
-                  const SizedBox(height: 16),
-                  CustomTextField(
-                    controller: _adminCodeController,
-                    label: 'Admin Code',
-                    hint: 'Enter your admin code',
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your admin code';
-                      }
-                      return null;
-                    },
-                  ),
-                ],
                 const SizedBox(height: 24),
-                _buildLoginButton(state),
+
+                // Gradient "Log In" button
+                _buildGradientLoginButton(state),
               ],
-            ),
-          ),
-        );
-      },
+            );
+          },
+        ),
+      ),
     );
   }
 
-  Widget _buildLoginButton(LoginState state) {
-    return ElevatedButton(
-      onPressed: state is! LoginLoading
-          ? () {
-              if (_formKey.currentState!.validate()) {
-                context.read<LoginBloc>().add(
-                      LoginSubmitted(
-                        context: context, // Pass the context
-                        email: _emailController.text,
-                        password: _passwordController.text,
-                        userType: _selectedUserType,
-                        adminCode: _selectedUserType == 'restaurant'
-                            ? _adminCodeController.text
-                            : null,
-                      ),
-                    );
-              }
-            }
-          : null,
-      style: ElevatedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
+  Widget _buildGradientLoginButton(LoginState state) {
+    final isLoading = state is LoginLoading;
+
+    return GestureDetector(
+      onTap: () {
+        if (!isLoading && _formKey.currentState!.validate()) {
+          context.read<LoginBloc>().add(
+                LoginSubmitted(
+                  context: context,
+                  email: _emailController.text.trim(),
+                  password: _passwordController.text,
+                  userType: 'customer',
+                  adminCode: null,
+                ),
+              );
+        }
+      },
+      child: Container(
+        height: 50,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [
+              app_colors.AppColors.primaryDark,
+              app_colors.AppColors.primary,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
           borderRadius: BorderRadius.circular(12),
         ),
-        elevation: 0,
+        child: Center(
+          child: isLoading
+              ? const SizedBox(
+                  height: 24,
+                  width: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : const Text(
+                  'Log In',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontFamily: AppFonts.medium,
+                    fontSize: 16,
+                  ),
+                ),
+        ),
       ),
-      child: state is LoginLoading
-          ? const SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            )
-          : const Text(
-              'Log In',
-              style: TextStyle(
-                fontSize: 16,
-                fontFamily: AppFonts.semiBold,
-              ),
-            ),
     );
   }
 
   Widget _buildForgotPassword() {
     return TextButton(
       onPressed: () => Navigator.pushNamed(context, '/forgot-password'),
-      style: TextButton.styleFrom(
-        foregroundColor: AppColors.primary,
-      ),
-      child: const Text(
-        'Forgot your password?',
-        style: TextStyle(
-          fontFamily: AppFonts.medium,
-        ),
-      ),
+      style: TextButton.styleFrom(foregroundColor: Colors.black54),
+      child: const Text('Forgot your password?'),
     );
   }
 
@@ -357,29 +305,17 @@ class _LoginViewState extends State<LoginView> {
       children: [
         const Text(
           "Don't have an account? ",
-          style: TextStyle(
-            color: AppColors.textSecondary,
-            fontFamily: AppFonts.regular,
-          ),
+          style: TextStyle(color: Colors.black54),
         ),
         TextButton(
           onPressed: () {
-            // Use the bloc to handle navigation
-            context.read<LoginBloc>().add(
-                  NavigateRegisterScreenEvent(context: context),
-                );
+            context
+                .read<LoginBloc>()
+                .add(NavigateRegisterScreenEvent(context: context));
           },
-          style: TextButton.styleFrom(
-            foregroundColor: AppColors.primary,
-            padding: EdgeInsets.zero,
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
           child: const Text(
             'Sign up',
-            style: TextStyle(
-              fontFamily: AppFonts.semiBold,
-            ),
+            style: TextStyle(color: app_colors.AppColors.primary),
           ),
         ),
       ],
@@ -387,31 +323,42 @@ class _LoginViewState extends State<LoginView> {
   }
 
   Widget _buildTermsAndPrivacy() {
-    return Text(
+    return const Text(
       'By continuing, you agree to our Terms of Service and Privacy Policy',
-      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: AppColors.textSecondary,
-            fontFamily: AppFonts.regular,
-          ),
       textAlign: TextAlign.center,
+      style: TextStyle(color: Colors.black54, fontSize: 12),
     );
   }
 
-  void _showErrorSnackbar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
-          style: const TextStyle(
-            fontFamily: AppFonts.medium,
-          ),
-        ),
-        backgroundColor: AppColors.error,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-    );
+  Widget _buildSyncStatus() {
+    // If you have some sync indicator logic, place it here
+    return const SizedBox.shrink();
   }
+}
+
+// A custom clipper for the top wave
+class _TopWaveClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    // Start from top-left
+    final path = Path()..lineTo(0, size.height - 60);
+
+    // Curve from left to right
+    final controlPoint = Offset(size.width / 2, size.height);
+    final endPoint = Offset(size.width, size.height - 60);
+    path.quadraticBezierTo(
+      controlPoint.dx,
+      controlPoint.dy,
+      endPoint.dx,
+      endPoint.dy,
+    );
+
+    // Then go straight up to the top-right corner
+    path.lineTo(size.width, 0);
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(_TopWaveClipper oldClipper) => false;
 }

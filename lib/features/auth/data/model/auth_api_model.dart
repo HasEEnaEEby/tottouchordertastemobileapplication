@@ -29,16 +29,21 @@ class AuthApiModel {
     required this.metadata,
   });
 
+  /// ✅ **Improved JSON Parsing**
   factory AuthApiModel.fromJson(Map<String, dynamic> json) {
-    // Handle nested 'data' structure from backend
     final userData = json['data']?['user'] ?? json['user'] ?? json;
 
     return AuthApiModel(
       id: userData['_id'] ?? userData['id'] ?? '',
       email: userData['email'] ?? '',
       userType: userData['role'] ?? userData['userType'] ?? 'customer',
-      token: json['data']?['token'] ?? userData['token'],
-      refreshToken: json['data']?['refreshToken'] ?? userData['refreshToken'],
+
+      /// ✅ **Ensure token is extracted correctly**
+      token: json['token'] ?? json['data']?['token'] ?? userData['token'],
+      refreshToken: json['refreshToken'] ??
+          json['data']?['refreshToken'] ??
+          userData['refreshToken'],
+
       isEmailVerified: userData['isEmailVerified'] ?? false,
       profile: userData['profile'] != null
           ? UserProfileModel.fromJson(userData['profile'])
@@ -51,6 +56,7 @@ class AuthApiModel {
 
   Map<String, dynamic> toJson() => _$AuthApiModelToJson(this);
 
+  /// ✅ **Convert API Model to Entity**
   AuthEntity toEntity() {
     return AuthEntity(
       id: id,
@@ -87,12 +93,11 @@ class UserProfileModel {
   });
 
   factory UserProfileModel.fromJson(Map<String, dynamic> json) {
-    // Handle potential null or missing fields
     return UserProfileModel(
-      username: json['username'],
-      displayName: json['displayName'] ?? json['name'],
-      phoneNumber: json['phoneNumber'] ?? json['contact'],
-      profileImage: json['profileImage'] ?? json['avatar'],
+      username: json['username'] ?? '',
+      displayName: json['displayName'] ?? json['name'] ?? '',
+      phoneNumber: json['phoneNumber'] ?? json['contact'] ?? '',
+      profileImage: json['profileImage'] ?? json['avatar'] ?? '',
       additionalInfo: json['additionalInfo'] ?? {},
     );
   }
@@ -109,6 +114,7 @@ class UserProfileModel {
     );
   }
 }
+
 
 @JsonSerializable(explicitToJson: true)
 class AuthMetadataModel {
@@ -152,10 +158,11 @@ class AuthMetadataModel {
     );
   }
 
-  static DateTime? _dateFromJson(String? date) {
+  /// ✅ **Improved Date Handling**
+  static DateTime? _dateFromJson(dynamic date) {
     if (date == null) return null;
     try {
-      return DateTime.parse(date);
+      return DateTime.parse(date.toString());
     } catch (e) {
       print('Error parsing date: $date');
       return null;
