@@ -5,7 +5,10 @@ import 'package:tottouchordertastemobileapplication/features/customer_dashboard/
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/view_model/customer_dashboard/customer_dashboard_state.dart';
 
 class CustomBottomNavigationBar extends StatelessWidget {
-  const CustomBottomNavigationBar({super.key});
+  const CustomBottomNavigationBar(
+      {super.key,
+      required int currentIndex,
+      required void Function(int index) onTabChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +31,6 @@ class CustomBottomNavigationBar extends StatelessWidget {
           child: BottomNavigationBar(
             currentIndex: currentIndex,
             onTap: (index) {
-              /// ✅ FIX: Use `TabChangedEvent` instead of `CustomerDashboardTabChangedEvent`
               context
                   .read<CustomerDashboardBloc>()
                   .add(TabChangedEvent(tabIndex: index));
