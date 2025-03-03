@@ -19,6 +19,8 @@ class SharedPreferencesService {
   static const String keyThemeMode = 'themeMode';
   static const String keyLanguage = 'language';
   static const String keyUserPreferences = 'userPreferences';
+  static const String keyBiometricLoginEnabled = 'biometricLoginEnabled';
+  static const String keyBiometricLoginEmail = 'biometricLoginEmail';
 
   SharedPreferencesService(this._prefs);
 
@@ -217,6 +219,10 @@ class SharedPreferencesService {
 
   double? getDouble(String key) {
     return _prefs.getDouble(key);
+  }
+
+  Future<void> remove(String key) async {
+    await _prefs.remove(key);
   }
 
   Future<void> setStringList(String key, List<String> value) async {
