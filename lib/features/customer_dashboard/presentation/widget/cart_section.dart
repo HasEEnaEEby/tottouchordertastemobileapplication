@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/domain/entity/cart_item_entity.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_dashboard/domain/entity/table_entity.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/widget/card_item_tile.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/widget/table_grid_view.dart';
 
@@ -35,13 +36,12 @@ class _CartSectionState extends State<CartSection>
 
   @override
   Widget build(BuildContext context) {
-    debugPrint(
-        '🛒 Building CartSection for Restaurant: ${widget.restaurantId}');
+    print("🛒 Building CartSection for Restaurant ID: ${widget.restaurantId}");
 
-    // Validate restaurant ID
     if (widget.restaurantId == null || widget.restaurantId!.isEmpty) {
+      print("🚨 Error: CartSection received an empty Restaurant ID!");
       return _buildErrorView(context, 'Cart Error',
-          'No restaurant selected. Please choose a restaurant first.');
+          'Restaurant information is missing. Please restart or go back and select a restaurant.');
     }
 
     return BlocBuilder<CustomerDashboardBloc, CustomerDashboardState>(
@@ -83,6 +83,7 @@ class _CartSectionState extends State<CartSection>
 
   Widget _buildCartContent(
       BuildContext context, RestaurantDetailsLoaded state) {
+    print("✅ CartSection has Restaurant ID: ${state.restaurant.id}");
     final cartItems = state.cartItems;
     final totalAmount = _calculateTotalAmount(cartItems);
 
@@ -210,11 +211,98 @@ class _CartSectionState extends State<CartSection>
 
   Widget _buildTableSelectionView(
       BuildContext context, RestaurantDetailsLoaded state) {
-    return Padding(
+    return Column(
+      children: [
+        // Selected table information card
+        if (state.selectedTableId != null)
+          _buildSelectedTableInfo(context, state),
+
+        // Only show the table grid if no table is selected yet
+        Expanded(
+          child: TableGridView(
+            tables: state.tables,
+            selectedTableId: state.selectedTableId,
+            restaurantId: state.restaurant.id,
+          ),
+        ),
+      ],
+    );
+  }
+
+// New method to display selected table information
+  Widget _buildSelectedTableInfo(
+      BuildContext context, RestaurantDetailsLoaded state) {
+    // Find the selected table
+    final selectedTable = state.tables.firstWhere(
+      (table) => table.id == state.selectedTableId,
+      orElse: () => TableEntity(
+        id: state.selectedTableId ?? '',
+        number: 0,
+        capacity: 0,
+        restaurantId: state.restaurant.id,
+        status: 'available',
+      ),
+    );
+
+    return Container(
+      margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
-      child: TableGridView(
-        tables: state.tables,
-        selectedTableId: state.selectedTableId,
+      decoration: BoxDecoration(
+        color: Colors.green.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.green.shade200, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.green, size: 28),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Table ${selectedTable.number} Selected',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
+                      ),
+                    ),
+                    Text(
+                      'Your food will be ready to serve at Table ${selectedTable.number}!',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextButton.icon(
+            onPressed: () {
+              context.read<CustomerDashboardBloc>().add(
+                    UnselectTableEvent(),
+                  );
+            },
+            icon: const Icon(Icons.refresh, size: 16),
+            label: const Text('Choose a different table'),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.green,
+            ),
+          ),
+        ],
       ),
     );
   }

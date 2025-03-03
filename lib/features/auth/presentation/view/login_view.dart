@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get_it/get_it.dart';
+import 'package:tottouchordertastemobileapplication/app/shared_prefs/shared_preferences.dart';
 import 'package:tottouchordertastemobileapplication/core/config/app_colors.dart'
     as app_colors;
 import 'package:tottouchordertastemobileapplication/core/config/app_theme.dart';
+import 'package:tottouchordertastemobileapplication/core/sensors/biometric_auth_service.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/login/login_bloc.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/login/login_event.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/login/login_state.dart';
@@ -21,20 +24,44 @@ class _LoginViewState extends State<LoginView>
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  final _biometricAuthService = GetIt.instance<BiometricAuthService>();
+  final _sharedPreferencesService = GetIt.instance<SharedPreferencesService>();
 
   // Toggling password visibility
   bool _obscurePassword = true;
+  bool _isBiometricLoginAvailable = false;
 
   late AnimationController _animationController;
 
   @override
   void initState() {
     super.initState();
+    _checkBiometricLoginStatus();
     // Fade-in animation controller
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
     )..forward();
+  }
+
+  void _checkBiometricLoginStatus() async {
+    final isSupported =
+        await _biometricAuthService.isDeviceSupportedBiometrics();
+    final isEnabled = _sharedPreferencesService
+            .getBool(SharedPreferencesService.keyBiometricLoginEnabled) ??
+        false;
+    final storedEmail = _sharedPreferencesService
+        .getString(SharedPreferencesService.keyBiometricLoginEmail);
+
+    setState(() {
+      _isBiometricLoginAvailable =
+          isSupported && isEnabled && storedEmail != null;
+    });
+
+    debugPrint('Biometric Login Status:');
+    debugPrint('- Device Support: $isSupported');
+    debugPrint('- Enabled: $isEnabled');
+    debugPrint('- Stored Email: $storedEmail');
   }
 
   @override
@@ -61,11 +88,70 @@ class _LoginViewState extends State<LoginView>
     );
   }
 
+  void _enableBiometricLogin() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Enable Biometric Login'),
+        content: const Text(
+            'Would you like to enable quick login using your fingerprint or face recognition? '
+            'This will allow faster access to your account.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final isSupported =
+                  await _biometricAuthService.isDeviceSupportedBiometrics();
+
+              if (isSupported) {
+                await _sharedPreferencesService.setBool(
+                    SharedPreferencesService.keyBiometricLoginEnabled, true);
+                await _sharedPreferencesService.setString(
+                    SharedPreferencesService.keyBiometricLoginEmail,
+                    _emailController.text.trim());
+
+                setState(() {
+                  _isBiometricLoginAvailable = true;
+                });
+
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Biometric login enabled successfully'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } else {
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                        'Biometric authentication not supported on this device'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text('Enable'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<LoginBloc, LoginState>(
       listener: (context, state) {
         if (state is LoginSuccess) {
+          // Prompt to enable biometric login if not already enabled
+          if (!_isBiometricLoginAvailable) {
+            _enableBiometricLogin();
+          }
+
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
               builder: (_) => CustomerDashboardView(
@@ -78,11 +164,10 @@ class _LoginViewState extends State<LoginView>
         }
       },
       child: Scaffold(
-        // Light/white background to contrast with the red wave
         backgroundColor: Colors.white,
         body: Stack(
           children: [
-            // 1) A tall wave at the top with a red gradient
+            // Top Wave Gradient
             Positioned(
               top: 0,
               left: 0,
@@ -90,7 +175,7 @@ class _LoginViewState extends State<LoginView>
               child: ClipPath(
                 clipper: _TopWaveClipper(),
                 child: Container(
-                  height: 320, // Increased for a more prominent wave
+                  height: 320,
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
@@ -132,7 +217,6 @@ class _LoginViewState extends State<LoginView>
               ),
             ),
 
-            // 4) Sync status or overlay if needed
             _buildSyncStatus(),
           ],
         ),
@@ -143,7 +227,6 @@ class _LoginViewState extends State<LoginView>
   Widget _buildHeader() {
     return const Column(
       children: [
-        // Replace with your TOT brand icon if you have one
         Icon(
           Icons.restaurant_menu,
           color: Colors.white,
@@ -181,9 +264,11 @@ class _LoginViewState extends State<LoginView>
         key: _formKey,
         child: BlocBuilder<LoginBloc, LoginState>(
           builder: (context, state) {
+            final isLoading = state is LoginLoading;
+
             return Column(
               children: [
-                // Email
+                // Email TextField
                 CustomTextField(
                   controller: _emailController,
                   label: 'Email',
@@ -193,13 +278,12 @@ class _LoginViewState extends State<LoginView>
                     if (value == null || value.trim().isEmpty) {
                       return 'Please enter your email';
                     }
-                    // Optionally add your own email validation
                     return null;
                   },
                 ),
                 const SizedBox(height: 16),
 
-                // Password + visibility toggle
+                // Password TextField
                 CustomTextField(
                   controller: _passwordController,
                   label: 'Password',
@@ -228,8 +312,72 @@ class _LoginViewState extends State<LoginView>
                 ),
                 const SizedBox(height: 24),
 
-                // Gradient "Log In" button
+                // Login Button
                 _buildGradientLoginButton(state),
+
+                // Biometric Login Section
+                if (_isBiometricLoginAvailable)
+                  Column(
+                    children: [
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          const Expanded(child: Divider()),
+                          Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 8.0),
+                            child: Text(
+                              'Or',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const Expanded(child: Divider()),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          foregroundColor: app_colors.AppColors.primary,
+                          backgroundColor:
+                              app_colors.AppColors.primary.withOpacity(0.1),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        icon: const Icon(
+                          Icons.fingerprint,
+                          size: 30,
+                          color: app_colors.AppColors.primary,
+                        ),
+                        label: const Text(
+                          'Quick Login with Biometrics',
+                          style: TextStyle(
+                            color: app_colors.AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        onPressed: () {
+                          context
+                              .read<LoginBloc>()
+                              .add(BiometricLoginAttempted(context: context));
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Use your fingerprint',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
               ],
             );
           },

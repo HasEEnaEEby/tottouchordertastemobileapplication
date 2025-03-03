@@ -36,7 +36,7 @@ class _FlashScreenState extends State<FlashScreen>
 
     // Initialize Animation Controller
     _animationController = AnimationController(
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 1),
       vsync: this,
     );
 
@@ -90,7 +90,7 @@ class _FlashScreenState extends State<FlashScreen>
   }
 
   void _setupVideoTransition() {
-    Future.delayed(const Duration(seconds: 9), () {
+    Future.delayed(const Duration(seconds: 6), () {
       setState(() {
         _transitioning = true;
         _showLogo = true;

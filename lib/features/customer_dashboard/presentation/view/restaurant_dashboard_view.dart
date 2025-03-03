@@ -28,9 +28,15 @@ class _RestaurantDashboardViewState extends State<RestaurantDashboardView> {
   @override
   void initState() {
     super.initState();
-    // Delay the event dispatch to ensure it's not called repeatedly during build
+    print(
+        "📌 Initializing RestaurantDashboardView with Restaurant ID: ${widget.restaurant.id}");
+
+    if (widget.restaurant.id.isEmpty) {
+      print("🚨 Error: Restaurant ID is missing at init!");
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_isInitialized) {
+      if (!_isInitialized && widget.restaurant.id.isNotEmpty) {
         context.read<CustomerDashboardBloc>().add(
               LoadRestaurantDetailsEvent(restaurantId: widget.restaurant.id),
             );
@@ -631,11 +637,28 @@ class _RestaurantDashboardViewState extends State<RestaurantDashboardView> {
   }
 
   void _showCart(BuildContext context) {
+    print("🛒 Opening CartSection with Restaurant ID: ${widget.restaurant.id}");
+
+    if (widget.restaurant.id.isEmpty) {
+      print("🚨 Error: Restaurant ID is missing in RestaurantDashboardView!");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Restaurant information is missing. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => CartSection(restaurantId: widget.restaurant.id),
+      builder: (context) {
+        print(
+            "📌 Navigating to CartSection with Restaurant ID: ${widget.restaurant.id}");
+        return CartSection(restaurantId: widget.restaurant.id);
+      },
     );
   }
 

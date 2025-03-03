@@ -8,6 +8,7 @@ import 'package:tottouchordertastemobileapplication/features/customer_dashboard/
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/domain/entity/order_entity.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/domain/entity/restaurant_entity.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/domain/entity/table_entity.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_dashboard/domain/repository/table_repository.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/domain/use_case/customer_dashboard_usecases.dart';
 
 import 'customer_dashboard_event.dart';
@@ -22,6 +23,7 @@ class CustomerDashboardBloc
   final GetRestaurantTablesUseCase getRestaurantTablesUseCase;
   final PlaceOrderUseCase placeOrderUseCase;
   final AuthTokenManager _tokenManager;
+  final TableRepository tableRepository;
 
   // Internal state management
   final List<RestaurantEntity> _restaurants = [];
@@ -41,6 +43,7 @@ class CustomerDashboardBloc
     required this.getRestaurantMenuUseCase,
     required this.getRestaurantTablesUseCase,
     required this.placeOrderUseCase,
+    required this.tableRepository,
     required AuthTokenManager tokenManager,
   })  : _tokenManager = tokenManager,
         super(CustomerDashboardInitial()) {
@@ -63,6 +66,8 @@ class CustomerDashboardBloc
     on<ClearCartEvent>(_onClearCart);
     on<LogoutRequestedEvent>(_onLogoutRequested);
     on<CheckAuthStatusEvent>(_onCheckAuthStatus);
+    on<ValidateTableQREvent>(_onValidateTableQR);
+    on<UnselectTableEvent>(_onUnselectTable);
   }
 
   Future<void> _onLoadRestaurants(
@@ -275,6 +280,19 @@ class CustomerDashboardBloc
     }
   }
 
+  void _onUnselectTable(
+    UnselectTableEvent event,
+    Emitter<CustomerDashboardState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is RestaurantDetailsLoaded) {
+      emit(currentState.copyWith(
+        selectedTable: null,
+        selectedTableId: null,
+      ));
+    }
+  }
+
   Future<void> _onLoadProfile(
     LoadProfileEvent event,
     Emitter<CustomerDashboardState> emit,
@@ -416,26 +434,29 @@ class CustomerDashboardBloc
     SelectTableEvent event,
     Emitter<CustomerDashboardState> emit,
   ) {
+    print("📌 Bloc: Selecting Table ${event.tableId}");
+
     final currentState = state;
     if (currentState is RestaurantDetailsLoaded) {
       try {
         final selectedTable = currentState.tables.firstWhere(
           (table) => table.id == event.tableId,
           orElse: () {
-            debugPrint('No table found with ID: ${event.tableId}');
+            print(
+                "🚨 Table ID ${event.tableId} not found in available tables!");
             return currentState.tables.first; // Fallback to first table
           },
         );
 
-        debugPrint(
-            'Selected Table: ${selectedTable.id}, Number: ${selectedTable.number}');
+        print(
+            "✅ Selected Table: ${selectedTable.id}, Number: ${selectedTable.number}");
 
         emit(currentState.copyWith(
           selectedTable: selectedTable,
           selectedTableId: selectedTable.id,
         ));
       } catch (e) {
-        debugPrint('Error selecting table: $e');
+        print("🚨 Error selecting table: $e");
       }
     }
   }
@@ -652,6 +673,73 @@ class CustomerDashboardBloc
       emit(const CustomerDashboardAuthError(
         message: 'Session expired. Please log in again.',
       ));
+    }
+  }
+
+  Future<void> _onValidateTableQR(
+    ValidateTableQREvent event,
+    Emitter<CustomerDashboardState> emit,
+  ) async {
+    debugPrint('🔍 Validating QR code for restaurant: ${event.restaurantId}');
+
+    if (event.restaurantId.isEmpty) {
+      debugPrint("🚨 Error: Restaurant ID is missing during QR validation!");
+      event.onError('Restaurant ID is missing. Please restart the app.');
+      return;
+    }
+
+    if (!_tokenManager.hasValidToken()) {
+      event.onError('Session expired. Please log in again.');
+      return;
+    }
+
+    try {
+      final result = await tableRepository.validateTableQR(
+        event.restaurantId,
+        event.qrData,
+      );
+
+      await result.fold(
+        (failure) async {
+          debugPrint('❌ QR validation failed: ${failure.message}');
+          event.onError(failure.message);
+        },
+        (validationModel) async {
+          debugPrint(
+              '✅ QR code validated! Table ID: ${validationModel.table.id}');
+
+          if (validationModel.table.status != 'available') {
+            event.onError(
+                'Table ${validationModel.table.number} is ${validationModel.table.status}');
+            return;
+          }
+
+          final currentState = state;
+          if (currentState is RestaurantDetailsLoaded) {
+            final tableEntity = currentState.tables.firstWhere(
+              (table) => table.id == validationModel.table.id,
+              orElse: () => TableEntity(
+                id: validationModel.table.id,
+                number: validationModel.table.number,
+                capacity: validationModel.table.capacity,
+                restaurantId: validationModel.table.restaurantId,
+                status: validationModel.table.status,
+                position: const {'x': 0, 'y': 0},
+              ),
+            );
+
+            emit(currentState.copyWith(
+              selectedTable: tableEntity,
+              selectedTableId: validationModel.table.id,
+            ));
+          }
+
+          event.onSuccess(validationModel.table.id);
+        },
+      );
+    } catch (e) {
+      debugPrint('💥 Unexpected error during QR validation: $e');
+      event.onError('An unexpected error occurred: $e');
     }
   }
 }
