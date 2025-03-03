@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:tottouchordertastemobileapplication/core/errors/failures.dart';
+import 'package:tottouchordertastemobileapplication/features/auth/data/model/token_response.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/domain/entity/auth_entity.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/domain/entity/restaurant_entity.dart';
 
@@ -58,4 +59,6 @@ abstract class AuthRepository {
   Future<Either<Failure, bool>> verifyEmail(String token);
 
   Future<Either<Failure, bool>> resendVerificationEmail(String email);
+
+  Future<Either<Failure, TokenResponse>> refreshToken(String refreshToken);
 }
