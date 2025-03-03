@@ -24,15 +24,17 @@ class RestaurantHiveModelAdapter extends TypeAdapter<RestaurantHiveModel> {
       ..contactNumber = fields[4] as String
       ..quote = fields[5] as String
       ..status = fields[6] as String
-      ..email = fields[7] as String
-      ..createdAt = fields[8] as DateTime
-      ..updatedAt = fields[9] as DateTime;
+      ..email = fields[7] as String?
+      ..category = fields[8] as String?
+      ..createdAt = fields[9] as DateTime?
+      ..updatedAt = fields[10] as DateTime?
+      ..image = fields[11] as String?;
   }
 
   @override
   void write(BinaryWriter writer, RestaurantHiveModel obj) {
     writer
-      ..writeByte(10)
+      ..writeByte(12)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -50,9 +52,13 @@ class RestaurantHiveModelAdapter extends TypeAdapter<RestaurantHiveModel> {
       ..writeByte(7)
       ..write(obj.email)
       ..writeByte(8)
-      ..write(obj.createdAt)
+      ..write(obj.category)
       ..writeByte(9)
-      ..write(obj.updatedAt);
+      ..write(obj.createdAt)
+      ..writeByte(10)
+      ..write(obj.updatedAt)
+      ..writeByte(11)
+      ..write(obj.image);
   }
 
   @override

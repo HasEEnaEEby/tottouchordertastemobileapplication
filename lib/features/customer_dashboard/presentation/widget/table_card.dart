@@ -4,12 +4,14 @@ import 'package:tottouchordertastemobileapplication/features/customer_dashboard/
 class TableCard extends StatelessWidget {
   final TableEntity table;
   final bool isSelected;
+  final bool requiresQR;
   final VoidCallback onTap;
 
   const TableCard({
     super.key,
     required this.table,
     this.isSelected = false,
+    this.requiresQR = true,
     required this.onTap,
   });
 
@@ -36,37 +38,68 @@ class TableCard extends StatelessWidget {
                 ),
               ],
             ),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _buildTableIcon(),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Table ${table.number}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: _getTextColor(),
+            child: Stack(
+              children: [
+                // Main content
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        _buildTableIcon(),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Table ${table.number}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: _getTextColor(),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${table.capacity} Seats',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: _getTextColor().withOpacity(0.7),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 2),
+                        _buildStatusBadge(),
+                      ],
                     ),
-                    textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${table.capacity} Seats',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: _getTextColor().withOpacity(0.7),
+                ),
+
+                // QR indicator for available tables
+                if (requiresQR && table.status == 'available')
+                  _buildQRIndicator(),
+
+                // Selected indicator
+                if (isSelected)
+                  Positioned(
+                    top: 5,
+                    right: 5,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        color: Colors.green,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.check,
+                        size: 10,
+                        color: Colors.white,
+                      ),
                     ),
-                    textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 2),
-                  _buildStatusBadge(),
-                ],
-              ),
+              ],
             ),
           ),
         );
@@ -95,6 +128,32 @@ class TableCard extends StatelessWidget {
           color: _getStatusColor(),
           fontSize: 8,
           fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQRIndicator() {
+    return Positioned(
+      top: 5,
+      left: 5,
+      child: Container(
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(6),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 2,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: const Icon(
+          Icons.qr_code_scanner,
+          size: 10,
+          color: Colors.green,
         ),
       ),
     );

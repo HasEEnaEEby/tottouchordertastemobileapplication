@@ -36,6 +36,7 @@ class AuthRemoteDataSource implements IAuthDataSource {
     try {
       await _checkConnection();
 
+      print("🕵️‍♂️ Debugging API URL: ${ApiEndpoints.login}");
       final response = await _dio.post(
         ApiEndpoints.login,
         data: {

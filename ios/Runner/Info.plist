@@ -28,6 +28,21 @@
     <string>LaunchScreen</string>
     <key>UIMainStoryboardFile</key>
     <string>Main</string>
+
+    <!-- Camera Permission -->
+    <key>NSCameraUsageDescription</key>
+    <string>Camera access is required to scan QR codes for table verification</string>
+    
+    <!-- Local Network Access Permission -->
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>We need access to your local network to connect to our restaurant services</string>
+    
+    <!-- Bonjour Services -->
+    <key>NSBonjourServices</key>
+    <array>
+        <string>_http._tcp</string>
+        <string>_https._tcp</string>
+    </array>
     
     <!-- Supported Interface Orientations -->
     <key>UISupportedInterfaceOrientations</key>
@@ -83,7 +98,17 @@
         <key>NSAllowsArbitraryLoadsInWebContent</key>
         <true/>
     </dict>
-    
-    <!-- Add additional configurations as needed -->
+
+    <!-- Proximity Sensor Permission -->
+    <key>NSProximitySensorUsageDescription</key>
+    <string>We need access to your proximity sensor to dim the screen when the phone is close to your face or covered</string>
+
+    <key>NSLightSensorUsageDescription</key>
+    <string>We need access to the light sensor to adjust the app's theme based on ambient light</string>
+
+
+    <key>NSFaceIDUsageDescription</key>
+    <string>We use Face ID to securely authenticate you</string>
+
 </dict>
 </plist>

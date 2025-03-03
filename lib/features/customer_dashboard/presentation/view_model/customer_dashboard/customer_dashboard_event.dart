@@ -187,3 +187,25 @@ class CheckAuthStatusEvent extends CustomerDashboardEvent {
   @override
   String toString() => 'CheckAuthStatusEvent';
 }
+
+class UnselectTableEvent extends CustomerDashboardEvent {
+  @override
+  String toString() => 'UnselectTableEvent';
+}
+
+class ValidateTableQREvent extends CustomerDashboardEvent {
+  final String restaurantId;
+  final String qrData;
+  final Function(String) onSuccess;
+  final Function(String) onError;
+
+  const ValidateTableQREvent({
+    required this.restaurantId,
+    required this.qrData,
+    required this.onSuccess,
+    required this.onError,
+  });
+
+  @override
+  List<Object?> get props => [restaurantId, qrData];
+}

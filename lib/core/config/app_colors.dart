@@ -14,7 +14,9 @@ class AppColors {
   // Accent and Backgrounds
   static const Color accent = Color(0xFFF8F8F8);
   static const Color background = Color(0xFFFFFFFF);
+  static const Color backgroundDark = Color(0xFF121212);
   static const Color surface = Color(0xFFFFFFFF);
+  static const Color surfaceDark = Color(0xFF1E1E1E);
   static const Color cardBackground = Color(0xFFF2F2F2);
 
   // Text Colors

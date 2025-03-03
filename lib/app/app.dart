@@ -5,11 +5,14 @@ import 'package:logging/logging.dart';
 import 'package:tottouchordertastemobileapplication/app/deep_link_handler.dart';
 import 'package:tottouchordertastemobileapplication/core/common/internet_checker.dart';
 import 'package:tottouchordertastemobileapplication/core/config/app_theme.dart';
+import 'package:tottouchordertastemobileapplication/core/sensors/light_sensor_service.dart';
+import 'package:tottouchordertastemobileapplication/core/sensors/sensor_manager.dart';
 import 'package:tottouchordertastemobileapplication/core/theme/theme_cubit.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/login/login_bloc.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/signup/register_bloc.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/sync/sync_bloc.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/view_model/customer_dashboard/customer_dashboard_bloc.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_profile/presentation/view_model/customer_profile/customer_profile_bloc.dart';
 import 'package:tottouchordertastemobileapplication/features/splash/presentation/view/splash_view.dart';
 import 'package:tottouchordertastemobileapplication/features/splash_onboarding_cubit.dart';
 
@@ -26,10 +29,25 @@ class _AppState extends State<App> with WidgetsBindingObserver {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   CustomerDashboardBloc? _dashboardBloc;
 
+  // Track if auto-theme based on light is enabled
+  bool _isAutoThemeEnabled = false;
+
   @override
   void initState() {
     super.initState();
     _initializeApp();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final themeCubit = context.read<ThemeCubit>();
+      debugPrint("🔆 Current theme preference: ${themeCubit.preference}");
+
+      if (themeCubit.preference == ThemePreference.auto) {
+        debugPrint("🔆 Auto theme is enabled, starting light sensor");
+        // Start the light sensor
+        final sensorManager = GetIt.instance<SensorManager>();
+        sensorManager.lightSensorService.startListening();
+      }
+    });
   }
 
   Future<void> _initializeApp() async {
@@ -59,9 +77,52 @@ class _AppState extends State<App> with WidgetsBindingObserver {
   void _initializeAppComponents() {
     try {
       _initNetworkListener();
+      _initSensors();
       DeepLinkHandler.init(navigatorKey: _navigatorKey);
     } catch (e) {
       _logger.severe('Error initializing components: $e');
+    }
+  }
+
+  void _initSensors() {
+    try {
+      final sensorManager = GetIt.instance<SensorManager>();
+      final lightSensorService = sensorManager.lightSensorService;
+
+      // Start light sensor
+      lightSensorService.startListening();
+
+      // Setup light sensor to control theme when auto theme is enabled
+      lightSensorService.addListener(_handleLightChange);
+
+      _logger.info('Sensors initialized successfully');
+    } catch (e) {
+      _logger.warning('Failed to initialize sensors: $e');
+    }
+  }
+
+  void _handleLightChange(int luxValue) {
+    if (_isAutoThemeEnabled) {
+      _logger.info('🔆 Light level changed: $luxValue lux, updating theme');
+
+      // Get theme cubit
+      final themeCubit = context.read<ThemeCubit>();
+
+      // Get sensor manager and light service
+      final sensorManager = GetIt.instance<SensorManager>();
+      final lightSensorService = sensorManager.lightSensorService;
+
+      // Update theme mode based on light level
+      final recommendedThemeMode = lightSensorService.getRecommendedThemeMode();
+      _logger.info(
+          '🔆 Recommended theme mode: ${recommendedThemeMode.toString()}');
+
+      // If theme changed, emit new state
+      if (themeCubit.state != recommendedThemeMode) {
+        _logger
+            .info('🔆 Changing theme to: ${recommendedThemeMode.toString()}');
+        themeCubit.updateThemeBasedOnLight(recommendedThemeMode);
+      }
     }
   }
 
@@ -107,10 +168,24 @@ class _AppState extends State<App> with WidgetsBindingObserver {
 
   void _handleAppResumed() {
     _handleNetworkConnected();
+
+    // Resume sensors when app is brought to foreground
+    try {
+      final sensorManager = GetIt.instance<SensorManager>();
+      sensorManager.lightSensorService.startListening();
+    } catch (e) {
+      _logger.warning('Failed to resume sensors: $e');
+    }
   }
 
   void _handleAppBackground() {
-    // Handle background state
+    // Stop sensors when app is backgrounded to save battery
+    try {
+      final sensorManager = GetIt.instance<SensorManager>();
+      sensorManager.lightSensorService.stopListening();
+    } catch (e) {
+      _logger.warning('Failed to stop sensors: $e');
+    }
   }
 
   @override
@@ -118,6 +193,15 @@ class _AppState extends State<App> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     DeepLinkHandler.dispose();
     _dashboardBloc?.close();
+
+    // Clean up sensors
+    try {
+      final sensorManager = GetIt.instance<SensorManager>();
+      sensorManager.lightSensorService.dispose();
+    } catch (e) {
+      _logger.warning('Failed to dispose sensors: $e');
+    }
+
     super.dispose();
   }
 
@@ -141,33 +225,119 @@ class _AppState extends State<App> with WidgetsBindingObserver {
           create: (_) => GetIt.instance<SyncBloc>(),
         ),
         BlocProvider<CustomerDashboardBloc>(
-          create: (_) => GetIt.instance<
-              CustomerDashboardBloc>(), 
+          create: (_) => GetIt.instance<CustomerDashboardBloc>(),
+        ),
+        BlocProvider<CustomerProfileBloc>(
+          create: (_) => GetIt.instance<CustomerProfileBloc>(),
         ),
       ],
       child: Builder(
         builder: (context) {
-          return MaterialApp(
-            navigatorKey: _navigatorKey,
-            title: 'TOT Restaurant Ordering',
-            debugShowCheckedModeBanner: false,
-            theme: AppTheme.lightTheme,
-            darkTheme: AppTheme.darkTheme,
-            themeMode: context.watch<ThemeCubit>().state,
-            home: const FlashScreen(),
-            builder: (context, child) {
-              return ScrollConfiguration(
-                behavior: const ScrollBehavior(),
-                child: child ?? const SizedBox(),
-              );
+          // Listen to theme cubit changes to track auto-theme status
+          return BlocListener<ThemeCubit, ThemeMode>(
+            listener: (context, themeMode) {
+              // Update auto theme tracking based on theme cubit's preference
+              setState(() {
+                _isAutoThemeEnabled = context.read<ThemeCubit>().preference ==
+                    ThemePreference.auto;
+              });
             },
-            navigatorObservers: [
-              _AppNavigatorObserver(),
-            ],
+            child: MaterialApp(
+              navigatorKey: _navigatorKey,
+              title: 'TOT Restaurant Ordering',
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.lightTheme,
+              darkTheme: AppTheme.darkTheme,
+              themeMode: context.watch<ThemeCubit>().state,
+              home: const FlashScreen(),
+              builder: (context, child) {
+                // Apply visual adjustments based on light conditions
+                return ScrollConfiguration(
+                  behavior: const ScrollBehavior(),
+                  child: _applyLightAdjustments(context, child),
+                );
+              },
+              navigatorObservers: [
+                _AppNavigatorObserver(),
+              ],
+            ),
           );
         },
       ),
     );
+  }
+
+  // Apply visual adjustments based on light level
+  Widget _applyLightAdjustments(BuildContext context, Widget? child) {
+    // Only apply adjustments if auto theme is enabled
+    if (_isAutoThemeEnabled) {
+      try {
+        final sensorManager = GetIt.instance<SensorManager>();
+        final lightService = sensorManager.lightSensorService;
+
+        // For very bright environments, increase contrast slightly
+        if (lightService.currentLux > LightSensorService.brightThreshold) {
+          return ColorFiltered(
+            colorFilter: const ColorFilter.matrix([
+              1.1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1.1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1.1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+            ]), // Increase contrast
+            child: child ?? const SizedBox(),
+          );
+        }
+        // For very dark environments, apply a warm filter to reduce eye strain
+        else if (lightService.currentLux < LightSensorService.darkThreshold) {
+          return ColorFiltered(
+            colorFilter: const ColorFilter.matrix([
+              0.9,
+              0.1,
+              0,
+              0,
+              0,
+              0.1,
+              0.9,
+              0,
+              0,
+              0,
+              0,
+              0.1,
+              0.9,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+            ]), // Slight warm tint
+            child: child ?? const SizedBox(),
+          );
+        }
+      } catch (e) {
+        _logger.warning('Error applying light adjustments: $e');
+      }
+    }
+
+    // Default - no adjustments
+    return child ?? const SizedBox();
   }
 }
 
