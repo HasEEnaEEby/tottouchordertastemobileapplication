@@ -2,19 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/presentation/view/login_view.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/login/login_bloc.dart';
+import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/login/login_event.dart';
+import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/login/login_state.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/sync/sync_bloc.dart';
 import 'package:tottouchordertastemobileapplication/features/onboarding.dart/onboarding_screen.dart';
 import 'package:tottouchordertastemobileapplication/features/splash_onboarding_cubit.dart';
 import 'package:video_player/video_player.dart';
 
-class FlashScreen extends StatefulWidget {
-  const FlashScreen({super.key});
+class SplashView extends StatefulWidget {
+  const SplashView({super.key});
 
   @override
-  _FlashScreenState createState() => _FlashScreenState();
+  State<SplashView> createState() => _SplashViewState();
 }
 
-class _FlashScreenState extends State<FlashScreen>
+class _SplashViewState extends State<SplashView>
     with SingleTickerProviderStateMixin {
   // Video Controllers
   late VideoPlayerController _controller1;
@@ -29,6 +31,7 @@ class _FlashScreenState extends State<FlashScreen>
   bool _showLogo = false;
   bool _transitioning = false;
   bool _videosLoaded = false;
+  bool _authCheckInitiated = false;
 
   @override
   void initState() {
@@ -36,7 +39,7 @@ class _FlashScreenState extends State<FlashScreen>
 
     // Initialize Animation Controller
     _animationController = AnimationController(
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 1),
       vsync: this,
     );
 
@@ -67,18 +70,20 @@ class _FlashScreenState extends State<FlashScreen>
 
   void _initializeAndPlay(VideoPlayerController controller) {
     controller.initialize().then((_) {
-      setState(() {
-        controller.play();
-        controller.setVolume(0.0);
+      if (mounted) {
+        setState(() {
+          controller.play();
+          controller.setVolume(0.0);
 
-        // Check if all videos are initialized
-        if (_areAllVideosInitialized()) {
-          _videosLoaded = true;
-          context.read<SplashOnboardingCubit>().updateVideoLoadingState(true);
-        }
-      });
+          // Check if all videos are initialized
+          if (_areAllVideosInitialized()) {
+            _videosLoaded = true;
+            context.read<SplashOnboardingCubit>().updateVideoLoadingState(true);
+          }
+        });
+      }
     }).catchError((error) {
-      print('Video initialization error: $error');
+      debugPrint('Video initialization error: $error');
     });
   }
 
@@ -90,24 +95,44 @@ class _FlashScreenState extends State<FlashScreen>
   }
 
   void _setupVideoTransition() {
-    Future.delayed(const Duration(seconds: 9), () {
-      setState(() {
-        _transitioning = true;
-        _showLogo = true;
-      });
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _transitioning = true;
+          _showLogo = true;
+        });
 
-      _animationController.forward();
+        _animationController.forward();
 
-      Future.delayed(const Duration(seconds: 3), () {
-        _navigateToNextScreen();
-      });
+        // Check authentication status after showing logo
+        if (!_authCheckInitiated) {
+          _authCheckInitiated = true;
+
+          // Wait for the onboarding check to complete
+          Future.delayed(const Duration(seconds: 1), () {
+            final onboardingState = context.read<SplashOnboardingCubit>().state;
+
+            if (onboardingState is OnboardingCompletedState) {
+              // If onboarding is completed, check authentication
+              context
+                  .read<LoginBloc>()
+                  .add(CheckAuthenticationStatus(context: context));
+            } else {
+              // If onboarding is not completed, proceed to onboarding
+              Future.delayed(const Duration(seconds: 1), () {
+                _navigateToNextScreen();
+              });
+            }
+          });
+        }
+      }
     });
   }
 
   void _navigateToNextScreen() {
-    final state = context.read<SplashOnboardingCubit>().state;
+    final onboardingState = context.read<SplashOnboardingCubit>().state;
 
-    if (state is OnboardingCompletedState) {
+    if (onboardingState is OnboardingCompletedState) {
       // If onboarding is completed, navigate to login
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
@@ -136,7 +161,7 @@ class _FlashScreenState extends State<FlashScreen>
     }
 
     // Log the navigation
-    print('Navigating from FlashScreen - State: $state');
+    debugPrint('Navigating from SplashScreen - State: $onboardingState');
   }
 
   @override
@@ -152,17 +177,36 @@ class _FlashScreenState extends State<FlashScreen>
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<SplashOnboardingCubit, SplashOnboardingState>(
-      listener: (context, state) {
-        if (state is SplashOnboardingErrorState) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Initialization Error: ${state.errorMessage}'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      },
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<SplashOnboardingCubit, SplashOnboardingState>(
+          listener: (context, state) {
+            if (state is SplashOnboardingErrorState) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Initialization Error: ${state.errorMessage}'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          },
+        ),
+        // Add a listener for LoginBloc to handle authentication results
+        BlocListener<LoginBloc, LoginState>(
+          listener: (context, state) {
+            // LoginInitial means not authenticated, so proceed to login screen
+            if (state is LoginInitial) {
+              if (_transitioning) {
+                Future.delayed(const Duration(seconds: 1), () {
+                  _navigateToNextScreen();
+                });
+              }
+            }
+            // LoginSuccess means already authenticated, navigation is handled
+            // in the LoginBloc._handleSuccessfulLogin method
+          },
+        ),
+      ],
       child: Scaffold(
         backgroundColor: const Color(0xFFF4F4F4),
         body: Stack(
@@ -191,12 +235,18 @@ class _FlashScreenState extends State<FlashScreen>
                   return Opacity(
                     opacity: _transitioning ? 1.0 : 0.0,
                     child: Center(
-                      child: Transform.scale(
-                        scale: _transitioning ? 2.0 : 1.0,
-                        child: Image.asset(
-                          'assets/images/AppLogo.png',
-                          height: 150,
-                        ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Transform.scale(
+                            scale: _transitioning ? 2.0 : 1.0,
+                            child: Image.asset(
+                              'assets/images/AppLogo.png',
+                              height: 150,
+                            ),
+                          ),
+                          const SizedBox(height: 40),
+                        ],
                       ),
                     ),
                   );

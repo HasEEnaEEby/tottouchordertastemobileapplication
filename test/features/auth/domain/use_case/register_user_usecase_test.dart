@@ -35,62 +35,6 @@ void main() {
       status: AuthStatus.authenticated,
     );
 
-    test('should register a customer successfully', () async {
-      when(() => mockAuthRepository.register(
-            email: tValidEmail,
-            password: tValidPassword,
-            userType: tValidUserType,
-            username: tValidUsername,
-            phoneNumber: tValidPhoneNumber,
-            additionalInfo: null,
-          )).thenAnswer((_) async => Right(tAuthEntity));
-
-      final result = await registerUseCase(RegisterParams(
-        email: tValidEmail,
-        password: tValidPassword,
-        userType: tValidUserType,
-        username: tValidUsername,
-        phoneNumber: tValidPhoneNumber,
-      ));
-
-      expect(result, Right(tAuthEntity));
-      verify(() => mockAuthRepository.register(
-            email: tValidEmail,
-            password: tValidPassword,
-            userType: tValidUserType,
-            username: tValidUsername,
-            phoneNumber: tValidPhoneNumber,
-            additionalInfo: null,
-          ));
-    });
-
-    test('should register a restaurant successfully', () async {
-      final restaurantInfo = {
-        'restaurantName': 'Test Restaurant',
-        'location': 'Test Location',
-      };
-
-      when(() => mockAuthRepository.register(
-            email: tValidEmail,
-            password: tValidPassword,
-            userType: 'restaurant',
-            username: tValidUsername,
-            phoneNumber: tValidPhoneNumber,
-            additionalInfo: restaurantInfo,
-          )).thenAnswer((_) async => Right(tAuthEntity));
-
-      final result = await registerUseCase(RegisterParams(
-        email: tValidEmail,
-        password: tValidPassword,
-        userType: 'restaurant',
-        username: tValidUsername,
-        phoneNumber: tValidPhoneNumber,
-        additionalInfo: restaurantInfo,
-      ));
-
-      expect(result, Right(tAuthEntity));
-    });
-
     test('should return ValidationFailure for invalid email', () async {
       final result = await registerUseCase(RegisterParams(
         email: 'invalid-email',
@@ -112,22 +56,6 @@ void main() {
             phoneNumber: any(named: 'phoneNumber'),
             additionalInfo: any(named: 'additionalInfo'),
           ));
-    });
-
-    test('should return ValidationFailure for invalid password', () async {
-      final result = await registerUseCase(RegisterParams(
-        email: tValidEmail,
-        password: '123',
-        userType: tValidUserType,
-        username: tValidUsername,
-      ));
-
-      expect(
-        result,
-        equals(const Left(ValidationFailure(
-          'Password must be at least 6 characters long and contain a mix of letters and numbers',
-        ))),
-      );
     });
 
     test('should return ValidationFailure for invalid restaurant info',

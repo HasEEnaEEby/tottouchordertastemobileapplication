@@ -1,7 +1,12 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
+import 'package:tottouchordertastemobileapplication/app/constants/api_endpoints.dart';
+import 'package:tottouchordertastemobileapplication/app/shared_prefs/shared_preferences.dart';
 import 'package:tottouchordertastemobileapplication/core/auth/auth_token_manager.dart';
+import 'package:tottouchordertastemobileapplication/core/sensors/biometric_auth_service.dart';
+import 'package:tottouchordertastemobileapplication/features/auth/data/model/auth_api_model.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/domain/entity/auth_entity.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/domain/repository/auth_repository.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/domain/use_case/login_usecase.dart';
@@ -15,6 +20,12 @@ import 'package:tottouchordertastemobileapplication/features/customer_dashboard/
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/view/restaurant_dashboard_view.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/view_model/customer_dashboard/customer_dashboard_bloc.dart';
 
+class BiometricLoginAttempted extends LoginEvent {
+  final BuildContext context;
+
+  const BiometricLoginAttempted({required this.context});
+}
+
 class LoginBloc extends Bloc<LoginEvent, LoginState> {
   final AuthRepository _authRepository;
   final CustomerDashboardRepository _customerDashboardRepository;
@@ -22,6 +33,8 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
   final RegisterBloc _registerBloc;
   final SyncBloc _syncBloc;
   final AuthTokenManager _tokenManager;
+  final SharedPreferencesService _preferencesService;
+  final BiometricAuthService _biometricAuthService;
 
   LoginBloc({
     required AuthRepository authRepository,
@@ -30,17 +43,22 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     required RegisterBloc registerBloc,
     required SyncBloc syncBloc,
     required AuthTokenManager tokenManager,
+    required SharedPreferencesService preferencesService,
+    required BiometricAuthService biometricAuthService,
   })  : _authRepository = authRepository,
         _customerDashboardRepository = customerDashboardRepository,
         _loginUseCase = loginUseCase,
         _registerBloc = registerBloc,
         _syncBloc = syncBloc,
         _tokenManager = tokenManager,
+        _preferencesService = preferencesService,
+        _biometricAuthService = biometricAuthService,
         super(LoginInitial()) {
     on<LoginSubmitted>(_onLoginSubmitted);
     on<LogoutRequested>(_onLogoutRequested);
     on<NavigateRegisterScreenEvent>(_onNavigateRegisterScreen);
     on<CheckAuthenticationStatus>(_onCheckAuthStatus);
+    on<BiometricLoginAttempted>(_onBiometricLoginAttempted);
   }
 
   Future<void> _saveAuthData(AuthEntity user) async {
@@ -60,6 +78,26 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
         },
       );
 
+      // Always check biometric support and enable if possible
+      final isSupported =
+          await _biometricAuthService.isDeviceSupportedBiometrics();
+
+      if (isSupported) {
+        // First enable on server side
+        await enableBiometricLoginOnServer();
+
+        // Then enable locally
+        await _preferencesService.setBool(
+            SharedPreferencesService.keyBiometricLoginEnabled, true);
+
+        // Store email for biometric login
+        await _preferencesService.setString(
+            SharedPreferencesService.keyBiometricLoginEmail, user.email);
+
+        debugPrint(
+            '🔐 Biometric login automatically enabled for ${user.email}');
+      }
+
       final storedToken = _tokenManager.getToken();
       debugPrint(
           '✅ Stored token verification: ${storedToken?.substring(0, 20)}...');
@@ -71,6 +109,200 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
       debugPrint('❌ Error saving auth data: $e');
       throw Exception('Failed to save authentication data');
     }
+  }
+
+// Add this new method to LoginBloc
+  Future<bool> enableBiometricLoginOnServer() async {
+    try {
+      // Check if we have a valid token
+      final token = _tokenManager.getToken();
+      if (token == null) {
+        debugPrint('❌ No token available to enable biometric login');
+        return false;
+      }
+
+      // Call the toggle-biometric-login endpoint
+      final dio = Dio();
+      final response = await dio.post(
+        ApiEndpoints.toggleBiometricLogin,
+        data: {
+          'enabled': true,
+        },
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        debugPrint('✅ Biometric login enabled on server successfully');
+        return true;
+      } else {
+        debugPrint(
+            '❌ Failed to enable biometric login on server: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('❌ Error enabling biometric login on server: $e');
+      return false;
+    }
+  }
+
+  Future _onBiometricLoginAttempted(
+    BiometricLoginAttempted event,
+    Emitter emit,
+  ) async {
+    try {
+      emit(LoginLoading());
+
+      // Check if biometric login is enabled
+      final isBiometricEnabled = _preferencesService
+              .getBool(SharedPreferencesService.keyBiometricLoginEnabled) ??
+          false;
+
+      if (!isBiometricEnabled) {
+        emit(const LoginError('Biometric login is not enabled'));
+        return;
+      }
+
+      // Attempt biometric authentication on the device
+      final authenticated = await _biometricAuthService.authenticateUser();
+
+      if (!authenticated) {
+        emit(const LoginError('Biometric authentication failed'));
+        return;
+      }
+
+      // *** IMPORTANT: First check if we already have a valid token ***
+      if (_tokenManager.hasValidToken()) {
+        debugPrint('✅ Valid token found, continuing authentication');
+
+        // Get current user with existing token
+        final result = await _authRepository.getCurrentUser();
+
+        final validSession = await result.fold(
+          (failure) async {
+            debugPrint(
+                '⚠️ Token valid but user fetch failed: ${failure.message}');
+            // Try token refresh as fallback
+            return await _attemptTokenRefresh();
+          },
+          (user) async {
+            debugPrint('✅ Successfully retrieved user with existing token');
+            emit(LoginSuccess(user));
+            if (event.context.mounted) {
+              await _handleSuccessfulLogin(event.context, user);
+            }
+            return true;
+          },
+        );
+
+        if (validSession) return;
+      } else {
+        // Try token refresh if token is invalid
+        final refreshSuccess = await _attemptTokenRefresh();
+        if (refreshSuccess) return;
+      }
+
+      // If we get here, fallback to biometric login API
+      final storedEmail = _preferencesService
+          .getString(SharedPreferencesService.keyBiometricLoginEmail);
+
+      if (storedEmail == null) {
+        emit(const LoginError('No stored credentials for biometric login'));
+        return;
+      }
+
+      debugPrint('🔐 Attempting biometric login for: $storedEmail');
+
+      try {
+        // Try to use biometric login endpoint
+        final dio = Dio();
+        dio.options.validateStatus = (status) => status != null && status > 0;
+
+        final response = await dio.post(
+          ApiEndpoints.biometricLogin,
+          data: {'email': storedEmail},
+        );
+
+        if (response.statusCode == 200 && response.data['data'] != null) {
+          final user = AuthApiModel.fromJson(response.data['data']).toEntity();
+          await _saveAuthData(user);
+          emit(LoginSuccess(user));
+          if (event.context.mounted) {
+            await _handleSuccessfulLogin(event.context, user);
+          }
+          return;
+        }
+      } catch (e) {
+        debugPrint('❌ Biometric login API failed: $e');
+      }
+
+      // Final fallback - try stored password
+      final storedPassword =
+          _preferencesService.getString('last_used_password');
+      if (storedPassword != null && storedPassword.isNotEmpty) {
+        debugPrint('🔑 Attempting login with stored password');
+
+        final loginResult = await _loginUseCase(
+          LoginParams(
+            email: storedEmail,
+            password: storedPassword,
+            userType: 'customer',
+          ),
+        );
+
+        await loginResult.fold(
+          (failure) async {
+            emit(LoginError('Authentication failed: ${failure.message}'));
+          },
+          (user) async {
+            emit(LoginSuccess(user));
+            if (event.context.mounted) {
+              await _handleSuccessfulLogin(event.context, user);
+            }
+          },
+        );
+        return;
+      }
+
+      emit(const LoginError(
+          'Biometric login failed. Please login with your password.'));
+    } catch (e, stackTrace) {
+      debugPrint('🆘 Biometric Login Error: $e');
+      debugPrint('Stacktrace: $stackTrace');
+      emit(LoginError(e.toString()));
+    }
+  }
+
+// Helper method for token refresh
+  Future<bool> _attemptTokenRefresh() async {
+    debugPrint('🔄 Attempting token refresh');
+
+    final refreshToken = _tokenManager.getRefreshToken();
+    if (refreshToken == null || refreshToken.isEmpty) {
+      debugPrint('❌ No refresh token available');
+      return false;
+    }
+
+    final result = await _authRepository.refreshToken(refreshToken);
+
+    return await result.fold(
+      (failure) {
+        debugPrint('❌ Token refresh failed: ${failure.message}');
+        return false;
+      },
+      (tokenData) async {
+        debugPrint('✅ Token refresh successful');
+        await _tokenManager.updateTokensAfterRefresh(
+          tokenData.token,
+          tokenData.refreshToken ??
+              refreshToken,
+        );
+        return true;
+      },
+    );
   }
 
   Future<void> _onLoginSubmitted(
@@ -241,7 +473,15 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
       LogoutRequested event, Emitter<LoginState> emit) async {
     try {
       emit(LoginLoading());
+
+      // Clear authentication data
       await _tokenManager.clearAuthData();
+
+      await _preferencesService.setBool(
+          SharedPreferencesService.keyBiometricLoginEnabled, false);
+      await _preferencesService
+          .remove(SharedPreferencesService.keyBiometricLoginEmail);
+
       final result = await _authRepository.logout();
 
       result.fold(
@@ -262,20 +502,79 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
       CheckAuthenticationStatus event, Emitter<LoginState> emit) async {
     try {
       emit(LoginLoading());
+      debugPrint('🔍 Checking authentication status...');
 
+      // Check if we have a valid token
       if (!_tokenManager.hasValidToken()) {
+        debugPrint('🔍 No valid token found, redirecting to login');
         emit(LoginInitial());
+        // Navigate to login screen if no valid token
+        if (event.context.mounted) {
+          Navigator.of(event.context).pushReplacementNamed('/login');
+        }
         return;
       }
 
+      // Check if token is about to expire and needs refreshing
+      if (_tokenManager.willTokenExpireSoon()) {
+        debugPrint('⏱️ Token expiring soon, attempting refresh');
+        final refreshed = await _refreshTokenIfNeeded();
+        if (!refreshed) {
+          debugPrint('🔄 Token refresh failed, redirecting to login');
+          emit(LoginInitial());
+          if (event.context.mounted) {
+            Navigator.of(event.context).pushReplacementNamed('/login');
+          }
+          return;
+        }
+        debugPrint('🔄 Token refreshed successfully');
+      }
+
+      // Use the token to get current user
+      debugPrint('👤 Fetching current user with token');
       final result = await _authRepository.getCurrentUser();
 
       await result.fold(
         (failure) async {
-          await _tokenManager.clearAuthData();
-          emit(LoginInitial());
+          debugPrint('❌ Failed to get current user: ${failure.message}');
+
+          // If getCurrentUser fails, try one last refresh attempt
+          final refreshed = await _refreshTokenIfNeeded(forceRefresh: true);
+          if (refreshed) {
+            debugPrint(
+                '🔄 Emergency token refresh successful, retrying user fetch');
+            final retryResult = await _authRepository.getCurrentUser();
+
+            await retryResult.fold(
+              (retryFailure) async {
+                debugPrint('❌ Retry also failed: ${retryFailure.message}');
+                await _tokenManager.clearAuthData();
+                emit(LoginInitial());
+                if (event.context.mounted) {
+                  Navigator.of(event.context).pushReplacementNamed('/login');
+                }
+              },
+              (user) async {
+                debugPrint('✅ Retry successful, proceeding to dashboard');
+                emit(LoginSuccess(user));
+                if (event.context.mounted) {
+                  await _handleSuccessfulLogin(event.context, user);
+                }
+              },
+            );
+          } else {
+            debugPrint(
+                '❌ Emergency token refresh failed, redirecting to login');
+            await _tokenManager.clearAuthData();
+            emit(LoginInitial());
+            if (event.context.mounted) {
+              Navigator.of(event.context).pushReplacementNamed('/login');
+            }
+          }
         },
         (user) async {
+          // Success - proceed to dashboard
+          debugPrint('✅ Successfully retrieved user, proceeding to dashboard');
           emit(LoginSuccess(user));
           if (event.context.mounted) {
             await _handleSuccessfulLogin(event.context, user);
@@ -283,8 +582,48 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
         },
       );
     } catch (e) {
-      debugPrint('Auth Status Check Error: $e');
+      debugPrint('❌ Auth Status Check Error: $e');
       emit(LoginInitial());
+      if (event.context.mounted) {
+        Navigator.of(event.context).pushReplacementNamed('/login');
+      }
+    }
+  }
+
+  Future<bool> _refreshTokenIfNeeded({bool forceRefresh = false}) async {
+    try {
+      // Only refresh if token is expiring soon or force refresh is requested
+      if (!forceRefresh && !_tokenManager.willTokenExpireSoon()) {
+        return true; // No refresh needed
+      }
+
+      final refreshToken = _tokenManager.getRefreshToken();
+      if (refreshToken == null || refreshToken.isEmpty) {
+        debugPrint('❌ No refresh token available');
+        return false;
+      }
+
+      debugPrint('🔄 Attempting to refresh token');
+      final result = await _authRepository.refreshToken(refreshToken);
+
+      return await result.fold(
+        (failure) {
+          debugPrint('❌ Token refresh failed: ${failure.message}');
+          return false;
+        },
+        (tokenData) async {
+          debugPrint('✅ Token refresh successful');
+          await _tokenManager.updateTokensAfterRefresh(
+            tokenData.token,
+            tokenData.refreshToken ??
+                refreshToken, // This is correct, but ensure refreshToken isn't null
+          );
+          return true;
+        },
+      );
+    } catch (e) {
+      debugPrint('❌ Error during token refresh: $e');
+      return false;
     }
   }
 }

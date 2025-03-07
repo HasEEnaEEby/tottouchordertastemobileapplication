@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
 import 'package:tottouchordertastemobileapplication/app/constants/api_endpoints.dart';
 import 'package:tottouchordertastemobileapplication/app/services/sync_service.dart';
 import 'package:tottouchordertastemobileapplication/core/common/internet_checker.dart';
@@ -9,6 +10,7 @@ import 'package:tottouchordertastemobileapplication/core/errors/failures.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/data/data_source/local_data_source/auth_local_datasource.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/data/model/auth_api_model.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/data/model/sync_hive_model.dart';
+import 'package:tottouchordertastemobileapplication/features/auth/data/model/token_response.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/domain/entity/auth_entity.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/domain/entity/restaurant_entity.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/domain/repository/auth_repository.dart';
@@ -16,7 +18,7 @@ import 'package:tottouchordertastemobileapplication/features/auth/domain/reposit
 class AuthLocalRepositoryImpl implements AuthRepository {
   final AuthLocalDataSource _localDataSource;
   final NetworkInfo _networkInfo;
-  
+
   final SyncService _syncService;
   final Dio _dio;
   static const String entityType = 'auth';
@@ -96,6 +98,7 @@ class AuthLocalRepositoryImpl implements AuthRepository {
     required String password,
     required String userType,
     String? adminCode,
+    bool isBiometricLogin = false, // New optional parameter
   }) async {
     try {
       final isConnected = await _networkInfo.isConnected;
@@ -103,6 +106,26 @@ class AuthLocalRepositoryImpl implements AuthRepository {
         throw const core_exceptions.NetworkException('No internet connection');
       }
 
+      // Special handling for biometric login
+      if (isBiometricLogin) {
+        // Perform a lightweight authentication or token refresh
+        final response = await _dio.post(
+          ApiEndpoints.biometricLogin, // You'll need to add this endpoint
+          data: {
+            'email': email.trim().toLowerCase(),
+          },
+        );
+
+        if (response.statusCode == 200 && response.data['data'] != null) {
+          final authModel = AuthApiModel.fromJson(response.data['data']);
+          await _localDataSource.updateUser(authModel.toEntity());
+          return Right(authModel.toEntity());
+        } else {
+          return const Left(AuthFailure('Biometric login failed'));
+        }
+      }
+
+      // Existing traditional login logic
       if (userType.toLowerCase() == 'restaurant' &&
           (adminCode == null || adminCode.isEmpty)) {
         return const Left(
@@ -123,9 +146,7 @@ class AuthLocalRepositoryImpl implements AuthRepository {
 
       if (response.statusCode == 200 && response.data['data'] != null) {
         final authModel = AuthApiModel.fromJson(response.data['data']);
-
         await _localDataSource.updateUser(authModel.toEntity());
-
         return Right(authModel.toEntity());
       } else {
         return const Left(AuthFailure('Login failed'));
@@ -580,5 +601,39 @@ class AuthLocalRepositoryImpl implements AuthRepository {
       return Left(ServerFailure(e.toString()));
     }
   }
-  
+
+  @override
+  Future<Either<Failure, TokenResponse>> refreshToken(
+      String refreshToken) async {
+    try {
+      debugPrint('🔄 Repository: Calling refresh token endpoint');
+
+      final response = await _dio.post(
+        ApiEndpoints.refreshToken,
+        data: {
+          'refreshToken': refreshToken,
+        },
+      );
+
+      if (response.statusCode == 200 && response.data['data'] != null) {
+        debugPrint('✅ Repository: Token refresh successful');
+        return Right(TokenResponse.fromJson(response.data['data']));
+      } else {
+        debugPrint('❌ Repository: Invalid response from refresh endpoint');
+        return const Left(ServerFailure(
+            'Invalid response from server')); // Changed to ServerFailure
+      }
+    } on DioException catch (e) {
+      debugPrint('❌ Repository: Refresh token network error: ${e.message}');
+      return Left(NetworkFailure(
+          'Network error: ${e.message}')); // Changed to NetworkFailure
+    } catch (e) {
+      debugPrint('❌ Repository: Refresh token error: $e');
+      return Left(ServerFailure(
+          'Failed to refresh token: ${e.toString()}')); // Changed to ServerFailure
+    }
+  }
+
+
+
 }

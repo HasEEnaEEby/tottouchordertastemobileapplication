@@ -411,6 +411,8 @@ import 'dart:math';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:tottouchordertastemobileapplication/core/config/app_theme.dart'
+    as app_colors;
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/domain/entity/restaurant_entity.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/view/restaurant_dashboard_view.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/view_model/customer_dashboard/customer_dashboard_bloc.dart';
@@ -436,7 +438,7 @@ class RestaurantsListView extends StatelessWidget {
           return _buildErrorState(context, state.message);
         }
 
-        return _buildErrorState(context, 'Unable to load restaurants');
+        return _buildErrorState(context, 'Unable to load restaurant ');
       },
     );
   }
@@ -451,16 +453,8 @@ class RestaurantsListView extends StatelessWidget {
       children: [
         _buildRecommendedSection(context, restaurants),
         const SizedBox(height: 16),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            'All Restaurants',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[800],
-            ),
-          ),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
         ),
         ListView.builder(
           shrinkWrap: true,
@@ -478,114 +472,337 @@ class RestaurantsListView extends StatelessWidget {
     );
   }
 
-  Widget _buildRestaurantImage(RestaurantEntity restaurant) {
-    debugPrint(
-        '🔍 Checking image for ${restaurant.restaurantName}: ${restaurant.image}');
+  Widget _buildRestaurantListItem(
+      BuildContext context, RestaurantEntity restaurant) {
+    // Check for dark mode
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withOpacity(0.2)
+                : Colors.grey.withOpacity(0.2),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with profile pic and restaurant name
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: Row(
+              children: [
+                // Profile image (small circular avatar)
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
+                  backgroundImage:
+                      restaurant.image != null && restaurant.image!.isNotEmpty
+                          ? NetworkImage(restaurant.image!) as ImageProvider
+                          : null,
+                  child: restaurant.image == null || restaurant.image!.isEmpty
+                      ? Icon(
+                          Icons.restaurant,
+                          color: isDark ? Colors.grey[400] : Colors.grey,
+                          size: 20,
+                        )
+                      : null,
+                ),
+
+                const SizedBox(width: 10),
+
+                // Restaurant name and verification badge
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          // Wrap the Text in Expanded to handle long names
+                          Expanded(
+                            child: Text(
+                              restaurant.restaurantName,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color: isDark ? Colors.white : Colors.black,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow
+                                  .ellipsis, // Add ellipsis for long names
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          if (restaurant.subscriptionPro)
+                            Icon(
+                              Icons.verified,
+                              size: 14,
+                              color:
+                                  isDark ? Colors.blue[300] : Colors.blue[600],
+                            ),
+                        ],
+                      ),
+                      Text(
+                        restaurant.location,
+                        style: TextStyle(
+                          color: isDark ? Colors.white70 : Colors.grey[600],
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Favorite button
+                IconButton(
+                  icon: const Icon(
+                    Icons.favorite_border,
+                    color: app_colors.AppColors.primary,
+                  ),
+                  onPressed: () {
+                    // Add restaurant to favorites
+                  },
+                ),
+              ],
+            ),
+          ),
+
+          // Main restaurant image (full width)
+          GestureDetector(
+            onTap: () => _navigateToRestaurantDashboard(context, restaurant),
+            child: Stack(
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  height: 250,
+                  child: restaurant.image != null &&
+                          restaurant.image!.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: restaurant.image!,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            color: isDark ? Colors.grey[800] : Colors.grey[300],
+                            child: const Center(
+                                child: CircularProgressIndicator()),
+                          ),
+                          errorWidget: (context, url, error) {
+                            debugPrint(
+                                '❌ Error loading image for ${restaurant.restaurantName}: $error');
+                            return Container(
+                              color:
+                                  isDark ? Colors.grey[800] : Colors.grey[300],
+                              child: Icon(
+                                Icons.restaurant,
+                                color: isDark ? Colors.grey[600] : Colors.grey,
+                                size: 40,
+                              ),
+                            );
+                          },
+                        )
+                      : Container(
+                          color: isDark ? Colors.grey[800] : Colors.grey[300],
+                          child: Icon(
+                            Icons.restaurant,
+                            color: isDark ? Colors.grey[600] : Colors.grey,
+                            size: 40,
+                          ),
+                        ),
+                ),
+
+                // Restaurant tags/badges
+                Positioned(
+                  bottom: 10,
+                  left: 10,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(isDark ? 0.5 : 0.7),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.star, color: Colors.amber, size: 16),
+                        SizedBox(width: 4),
+                        Text(
+                          '4.5', // You can replace with actual rating if available
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                if (restaurant.category != null)
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: (isDark ? Colors.grey[850] : Colors.white)!
+                            .withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        restaurant.category!,
+                        style: TextStyle(
+                          color: Colors.orange[800],
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          // Restaurant description and stats
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Restaurant name and quote
+                RichText(
+                  text: TextSpan(
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black,
+                      fontSize: 14,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: restaurant.restaurantName,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      TextSpan(
+                        text: ' ${restaurant.quote}',
+                        style: const TextStyle(fontWeight: FontWeight.normal),
+                      ),
+                    ],
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 8),
+
+                // Restaurant stats/info
+                Row(
+                  children: [
+                    Icon(
+                      Icons.access_time,
+                      size: 14,
+                      color: isDark ? Colors.white70 : Colors.grey[600],
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '20-30 min',
+                      style: TextStyle(
+                        color: isDark ? Colors.white70 : Colors.grey[600],
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Icon(
+                      Icons.delivery_dining,
+                      size: 14,
+                      color: isDark ? Colors.white70 : Colors.grey[600],
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        'Enjoy your seamless ordering experience',
+                        style: TextStyle(
+                          color: isDark ? Colors.white70 : Colors.grey[600],
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Order now button
+          Padding(
+            padding: const EdgeInsets.only(left: 12, right: 12, bottom: 16),
+            child: ElevatedButton(
+              onPressed: () =>
+                  _navigateToRestaurantDashboard(context, restaurant),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: app_colors.AppColors.primary,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 46),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                'Place the food you want to have',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFullRestaurantImage(
+      BuildContext context, RestaurantEntity restaurant) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final containerColor = isDark ? Colors.grey[800] : Colors.grey[300];
+    final iconColor = isDark ? Colors.grey[600] : Colors.grey;
 
     if (restaurant.image == null || restaurant.image!.isEmpty) {
       return Container(
-        width: 120,
-        height: 120,
-        color: Colors.grey[300],
-        child: const Icon(Icons.restaurant, color: Colors.grey),
+        width: double.infinity,
+        height: 250,
+        color: containerColor,
+        child: Icon(Icons.restaurant, color: iconColor, size: 60),
       );
     }
 
     return ClipRRect(
-      borderRadius: const BorderRadius.only(
-        topLeft: Radius.circular(12),
-        bottomLeft: Radius.circular(12),
-      ),
+      borderRadius:
+          BorderRadius.circular(0), // No rounded corners for Instagram-style
       child: CachedNetworkImage(
         imageUrl: restaurant.image!,
-        width: 120,
-        height: 120,
+        width: double.infinity,
+        height: 250,
         fit: BoxFit.cover,
         placeholder: (context, url) => Container(
-          width: 120,
-          height: 120,
-          color: Colors.grey[300],
+          color: containerColor,
           child: const Center(child: CircularProgressIndicator()),
         ),
         errorWidget: (context, url, error) {
           debugPrint(
               '❌ Error loading image for ${restaurant.restaurantName}: $error');
           return Container(
-            width: 120,
-            height: 120,
-            color: Colors.grey[300],
-            child: const Icon(Icons.restaurant, color: Colors.grey),
+            color: containerColor,
+            child: Icon(Icons.restaurant, color: iconColor, size: 60),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildRestaurantListItem(
-      BuildContext context, RestaurantEntity restaurant) {
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      elevation: 3,
-      child: InkWell(
-        onTap: () => _navigateToRestaurantDashboard(context, restaurant),
-        borderRadius: BorderRadius.circular(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildRestaurantImage(restaurant),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                    Text(
-                      restaurant.restaurantName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      restaurant.quote,
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(Icons.location_on,
-                            size: 14, color: Colors.orange.shade700),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            restaurant.location,
-                            style: TextStyle(
-                              color: Colors.orange.shade700,
-                              fontSize: 12,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -648,16 +865,23 @@ class RestaurantsListView extends StatelessWidget {
 
   Widget _buildRecommendedItem(
       BuildContext context, RestaurantEntity restaurant) {
+    // Check for dark mode
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final textSecondaryColor = isDark ? Colors.white70 : Colors.grey[600];
+
     return GestureDetector(
       onTap: () => _navigateToRestaurantDashboard(context, restaurant),
       child: Container(
         width: 180,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cardColor,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.shade200,
+              color:
+                  isDark ? Colors.black.withOpacity(0.2) : Colors.grey.shade200,
               blurRadius: 5,
               offset: const Offset(0, 3),
             ),
@@ -666,8 +890,8 @@ class RestaurantsListView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildRestaurantImage(restaurant),
-            // Restaurant details
+            // Use dedicated method for recommended item images
+            _buildRecommendedItemImage(context, restaurant),
             Padding(
               padding: const EdgeInsets.all(10),
               child: Column(
@@ -676,9 +900,10 @@ class RestaurantsListView extends StatelessWidget {
                   // Restaurant name
                   Text(
                     restaurant.restaurantName,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
+                      color: textColor,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -689,7 +914,7 @@ class RestaurantsListView extends StatelessWidget {
                   Text(
                     restaurant.quote,
                     style: TextStyle(
-                      color: Colors.grey.shade600,
+                      color: textSecondaryColor,
                       fontSize: 12,
                     ),
                     maxLines: 2,
@@ -698,6 +923,7 @@ class RestaurantsListView extends StatelessWidget {
                   const SizedBox(height: 10),
 
                   // Bottom row with location and category
+// Bottom row with location and category
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -733,13 +959,17 @@ class RestaurantsListView extends StatelessWidget {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.green.shade50,
+                          color: isDark
+                              ? Colors.green.shade900
+                              : Colors.green.shade50,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           restaurant.category ?? 'General',
                           style: TextStyle(
-                            color: Colors.green.shade700,
+                            color: isDark
+                                ? Colors.green.shade100
+                                : Colors.green.shade700,
                             fontSize: 10,
                           ),
                         ),
@@ -756,19 +986,28 @@ class RestaurantsListView extends StatelessWidget {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.amber.shade50,
+                        color: isDark
+                            ? Colors.amber.shade900
+                            : Colors.amber.shade50,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.star,
-                              size: 10, color: Colors.amber.shade700),
+                          Icon(
+                            Icons.star,
+                            size: 10,
+                            color: isDark
+                                ? Colors.amber.shade100
+                                : Colors.amber.shade700,
+                          ),
                           const SizedBox(width: 2),
                           Text(
                             'PRO',
                             style: TextStyle(
-                              color: Colors.amber.shade700,
+                              color: isDark
+                                  ? Colors.amber.shade100
+                                  : Colors.amber.shade700,
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
                             ),
@@ -785,6 +1024,47 @@ class RestaurantsListView extends StatelessWidget {
     );
   }
 
+  Widget _buildRecommendedItemImage(
+      BuildContext context, RestaurantEntity restaurant) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final containerColor = isDark ? Colors.grey[800] : Colors.grey[300];
+    final iconColor = isDark ? Colors.grey[600] : Colors.grey;
+
+    if (restaurant.image == null || restaurant.image!.isEmpty) {
+      return ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+        child: Container(
+          width: 180,
+          height: 120,
+          color: containerColor,
+          child: Icon(Icons.restaurant, color: iconColor, size: 40),
+        ),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+      child: CachedNetworkImage(
+        imageUrl: restaurant.image!,
+        width: 180,
+        height: 120,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => Container(
+          color: containerColor,
+          child: const Center(child: CircularProgressIndicator()),
+        ),
+        errorWidget: (context, url, error) {
+          debugPrint(
+              '❌ Error loading image for ${restaurant.restaurantName}: $error');
+          return Container(
+            color: containerColor,
+            child: Icon(Icons.restaurant, color: iconColor, size: 40),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildLoadingState() {
     return const Center(
       child: CircularProgressIndicator(
@@ -794,21 +1074,24 @@ class RestaurantsListView extends StatelessWidget {
   }
 
   Widget _buildErrorState(BuildContext context, String message) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
+          Icon(
             Icons.error_outline,
             size: 64,
-            color: Colors.red,
+            color: isDark ? Colors.red[300] : Colors.red,
           ),
           const SizedBox(height: 16),
           Text(
             message,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black,
             ),
             textAlign: TextAlign.center,
           ),

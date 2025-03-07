@@ -19,6 +19,8 @@ class SharedPreferencesService {
   static const String keyThemeMode = 'themeMode';
   static const String keyLanguage = 'language';
   static const String keyUserPreferences = 'userPreferences';
+  static const String keyBiometricLoginEnabled = 'biometricLoginEnabled';
+  static const String keyBiometricLoginEmail = 'biometricLoginEmail';
 
   SharedPreferencesService(this._prefs);
 
@@ -123,23 +125,17 @@ class SharedPreferencesService {
   bool isOnboardingCompleted() {
     return _prefs.getBool(keyOnboardingCompleted) ?? false;
   }
-
-  /// ✅ Set Theme Mode (light/dark/system)
   Future<void> setThemeMode(String mode) async {
     await _prefs.setString(keyThemeMode, mode);
   }
-
-  /// ✅ Get Theme Mode
   String getThemeMode() {
     return _prefs.getString(keyThemeMode) ?? 'system';
   }
 
-  /// ✅ Set Preferred Language
   Future<void> setLanguage(String languageCode) async {
     await _prefs.setString(keyLanguage, languageCode);
   }
 
-  /// ✅ Get Preferred Language
   String getLanguage() {
     return _prefs.getString(keyLanguage) ?? 'en';
   }
@@ -217,6 +213,10 @@ class SharedPreferencesService {
 
   double? getDouble(String key) {
     return _prefs.getDouble(key);
+  }
+
+  Future<void> remove(String key) async {
+    await _prefs.remove(key);
   }
 
   Future<void> setStringList(String key, List<String> value) async {

@@ -4,25 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 
-/// Abstract class defining network information and connectivity methods
 abstract class NetworkInfo {
-  /// Checks if there is an active internet connection
   Future<bool> get isConnected;
-
-  /// Stream of connectivity changes
   Stream<bool> get onConnectivityChanged;
 
-  /// Checks connectivity with a specified timeout
   Future<bool> checkConnectivityWithTimeout({Duration timeout});
-
-  /// Waits for an active internet connection
   Future<void> waitForConnection({Duration? timeout, Duration checkInterval});
 
-  /// Disposes of connectivity listeners
   void dispose();
 }
 
-/// Concrete implementation of NetworkInfo
 class NetworkInfoImpl implements NetworkInfo {
   /// The internet connection checker
   final InternetConnectionChecker connectionChecker;

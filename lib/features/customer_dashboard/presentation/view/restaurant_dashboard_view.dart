@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/domain/entity/cart_item_entity.dart';
 
@@ -41,42 +42,228 @@ class _RestaurantDashboardViewState extends State<RestaurantDashboardView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: _buildAppBar(context),
-      body: BlocBuilder<CustomerDashboardBloc, CustomerDashboardState>(
-        builder: (context, state) {
-          if (state is RestaurantDetailsLoading) {
+    // Use PopScope instead of WillPopScope (as WillPopScope is deprecated)
+    return PopScope(
+      canPop: true,
+      onPopInvoked: (didPop) {
+        // When popping the route, preserve restaurant data
+        if (didPop && !context.read<CustomerDashboardBloc>().isClosed) {
+          context.read<CustomerDashboardBloc>().add(
+                PreserveRestaurantsEvent(),
+              );
+        }
+      },
+      child: Scaffold(
+        appBar: _buildAppBar(context),
+        body: BlocBuilder<CustomerDashboardBloc, CustomerDashboardState>(
+          builder: (context, state) {
+            if (state is RestaurantDetailsLoading) {
+              return _buildLoadingView();
+            }
+
+            if (state is RestaurantDetailsError) {
+              return _buildErrorView(context, state.message);
+            }
+
+            if (state is RestaurantDetailsLoaded) {
+              return _buildMainContent(context, state);
+            }
+
             return _buildLoadingView();
-          }
-
-          if (state is RestaurantDetailsError) {
-            return _buildErrorView(context, state.message);
-          }
-
-          if (state is RestaurantDetailsLoaded) {
-            return _buildMainContent(context, state);
-          }
-
-          return _buildLoadingView();
-        },
+          },
+        ),
+        floatingActionButton: _buildFAB(context),
       ),
-      floatingActionButton: _buildFAB(context),
     );
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
+
     return AppBar(
-      title: Text(widget.restaurant.restaurantName),
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
-        onPressed: () => Navigator.pop(context),
+      elevation: 0,
+      backgroundColor: isDark ? colorScheme.surface : Colors.white,
+      foregroundColor: colorScheme.onSurface,
+      centerTitle: false,
+      leadingWidth: 40,
+      title: Hero(
+        tag: 'restaurant_title_${widget.restaurant.id}',
+        child: Material(
+          color: Colors.transparent,
+          child: Text(
+            widget.restaurant.restaurantName,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+              color: colorScheme.onSurface,
+              letterSpacing: -0.3,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+      leading: Hero(
+        tag: 'back_button_${widget.restaurant.id}',
+        child: Material(
+          color: Colors.transparent,
+          child: IconButton(
+            icon: Icon(
+              isIOS ? Icons.arrow_back_ios_rounded : Icons.arrow_back_rounded,
+              size: 22,
+              color: colorScheme.onSurface,
+            ),
+            tooltip: 'Back to restaurants',
+            onPressed: () => Navigator.pop(context),
+            splashRadius: 24,
+          ),
+        ),
       ),
       actions: [
+        // Favorites button
         IconButton(
-          icon: const Icon(Icons.shopping_cart),
-          onPressed: () => _showCart(context),
+          icon: Icon(
+            Icons.favorite_border_rounded,
+            color: colorScheme.onSurface,
+            size: 24,
+          ),
+          tooltip: 'Add to favorites',
+          onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Added to favorites'),
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 2),
+                backgroundColor: colorScheme.primaryContainer,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            );
+          },
+          splashRadius: 24,
         ),
+
+        // Cart counter with badge
+        BlocBuilder<CustomerDashboardBloc, CustomerDashboardState>(
+          buildWhen: (previous, current) {
+            // Only rebuild when cart items change
+            if (previous is RestaurantDetailsLoaded &&
+                current is RestaurantDetailsLoaded) {
+              return previous.cartItems.length != current.cartItems.length;
+            }
+            return true;
+          },
+          builder: (context, state) {
+            int cartItemCount = 0;
+            if (state is RestaurantDetailsLoaded) {
+              cartItemCount = state.cartItems.length;
+            }
+
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                IconButton(
+                  icon: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    transitionBuilder:
+                        (Widget child, Animation<double> animation) {
+                      return ScaleTransition(scale: animation, child: child);
+                    },
+                    child: Icon(
+                      cartItemCount > 0
+                          ? Icons.shopping_cart_rounded
+                          : Icons.shopping_cart_outlined,
+                      key: ValueKey<bool>(cartItemCount > 0),
+                      color: cartItemCount > 0
+                          ? colorScheme.primary
+                          : colorScheme.onSurface,
+                      size: 24,
+                    ),
+                  ),
+                  tooltip: 'View cart',
+                  onPressed: () => _showCart(context),
+                  splashRadius: 24,
+                ),
+                if (cartItemCount > 0)
+                  Positioned(
+                    right: 6,
+                    top: 6,
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween<double>(begin: 0.5, end: 1.0),
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.elasticOut,
+                      builder: (context, value, child) {
+                        return Transform.scale(
+                          scale: value,
+                          child: child,
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        constraints: const BoxConstraints(
+                          minWidth: 18,
+                          minHeight: 18,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: colorScheme.primary.withOpacity(0.3),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          cartItemCount > 9 ? '9+' : '$cartItemCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+
+        // Share button
+        IconButton(
+          icon: Icon(
+            Icons.share_rounded,
+            color: colorScheme.onSurface,
+            size: 24,
+          ),
+          tooltip: 'Share restaurant',
+          onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Sharing ${widget.restaurant.restaurantName}'),
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          },
+          splashRadius: 24,
+        ),
+
+        const SizedBox(width: 4),
       ],
+      systemOverlayStyle: isDark
+          ? SystemUiOverlayStyle.light.copyWith(
+              statusBarColor: Colors.transparent,
+            )
+          : SystemUiOverlayStyle.dark.copyWith(
+              statusBarColor: Colors.transparent,
+            ),
     );
   }
 

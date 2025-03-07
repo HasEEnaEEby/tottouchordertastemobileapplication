@@ -187,3 +187,43 @@ class CheckAuthStatusEvent extends CustomerDashboardEvent {
   @override
   String toString() => 'CheckAuthStatusEvent';
 }
+
+class UnselectTableEvent extends CustomerDashboardEvent {
+  @override
+  String toString() => 'UnselectTableEvent';
+}
+
+class ToggleFavoritesFilterEvent extends CustomerDashboardEvent {
+  final bool showFavoritesOnly;
+
+  const ToggleFavoritesFilterEvent({required this.showFavoritesOnly});
+
+  @override
+  List<Object?> get props => [showFavoritesOnly];
+
+  @override
+  String toString() =>
+      'ToggleFavoritesFilterEvent(showFavoritesOnly: $showFavoritesOnly)';
+}
+
+class PreserveRestaurantsEvent extends CustomerDashboardEvent {
+  @override
+  String toString() => 'PreserveRestaurantsEvent';
+}
+
+class ValidateTableQREvent extends CustomerDashboardEvent {
+  final String restaurantId;
+  final String qrData;
+  final Function(String) onSuccess;
+  final Function(String) onError;
+
+  const ValidateTableQREvent({
+    required this.restaurantId,
+    required this.qrData,
+    required this.onSuccess,
+    required this.onError,
+  });
+
+  @override
+  List<Object?> get props => [restaurantId, qrData];
+}

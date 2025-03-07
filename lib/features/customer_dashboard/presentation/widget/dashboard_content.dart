@@ -1,8 +1,8 @@
 // lib/features/customer_dashboard/presentation/widget/dashboard_content.dart
 
 import 'package:flutter/material.dart';
-import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/view/customer_profile_view.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/view_model/customer_dashboard/customer_dashboard_state.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_profile/presentation/view/customer_profile_view.dart';
 
 import 'notifications_view.dart';
 import 'order_history_view.dart';
@@ -35,25 +35,11 @@ class DashboardContent extends StatelessWidget {
 
     return IndexedStack(
       index: selectedIndex,
-      children: [
-        // Restaurants screen
-        // const RestaurantsListView(),
-        // Profile screen
-        CustomerProfileView(
-          userName: state is ProfileLoaded
-              ? (state as ProfileLoaded)
-                  .userName // Changed from profile.username
-              : userName,
-          email: state is ProfileLoaded
-              ? (state as ProfileLoaded).email // Changed from profile.email
-              : "Loading...",
-        ),
-        // Order History screen
-        const OrderHistoryView(),
-        // Notifications screen
-        const NotificationsView(),
-        // Support & Help screen
-        const SupportView(),
+      children: const [
+        CustomerProfileView(),
+        OrderHistoryView(),
+        NotificationsView(),
+        SupportView(),
       ],
     );
   }

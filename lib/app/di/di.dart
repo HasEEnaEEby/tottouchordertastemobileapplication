@@ -1,10 +1,9 @@
-// lib/core/di/service_locator.dart
-
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:http/http.dart' as http;
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:logging/logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,6 +15,14 @@ import 'package:tottouchordertastemobileapplication/core/auth/auth_token_manager
 import 'package:tottouchordertastemobileapplication/core/common/internet_checker.dart';
 import 'package:tottouchordertastemobileapplication/core/network/hive_box_manager.dart';
 import 'package:tottouchordertastemobileapplication/core/network/hive_service.dart';
+import 'package:tottouchordertastemobileapplication/core/proximity/proximity_cubit.dart';
+import 'package:tottouchordertastemobileapplication/core/sensors/biometric_auth_service.dart';
+import 'package:tottouchordertastemobileapplication/core/sensors/light_sensor_service.dart';
+import 'package:tottouchordertastemobileapplication/core/sensors/location_service.dart';
+import 'package:tottouchordertastemobileapplication/core/sensors/motion_sensor_service.dart';
+import 'package:tottouchordertastemobileapplication/core/sensors/pedometer_service.dart';
+import 'package:tottouchordertastemobileapplication/core/sensors/proximity_sensor_service.dart';
+import 'package:tottouchordertastemobileapplication/core/sensors/sensor_manager.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/data/data_source/local_data_source/auth_local_datasource.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/data/data_source/remote_data_source/auth_remote_datasource.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/data/model/auth_hive_model.dart';
@@ -31,13 +38,35 @@ import 'package:tottouchordertastemobileapplication/features/auth/presentation/v
 import 'package:tottouchordertastemobileapplication/features/auth/presentation/view_model/verify_email/verify_email_bloc.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/data/data_source/remote_data_source/customer_dashboard_remote_datasource.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/data/data_source/remote_data_source/order_remote_datasource.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_dashboard/data/data_source/table_data_source.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/data/repository/customer_dashboard_repository_impl.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/data/repository/order_repository_impl.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_dashboard/data/repository/table_repository_impl.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/domain/repository/customer_dashboard_repository.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/domain/repository/order_repository.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_dashboard/domain/repository/table_repository.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/domain/use_case/customer_dashboard_usecases.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/view_model/customer_dashboard/customer_dashboard_bloc.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_profile/data/data_source/customer_profile_data_source.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_profile/data/data_source/local_data_source/customer_profile_local_datasource.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_profile/data/data_source/remote_data_source/customer_profile_remote_datasource.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_profile/data/repository/customer_profile_repository_impl.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_profile/domain/repository/customer_profile_repository.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_profile/domain/use_case/delete_customer_profile_usecase.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_profile/domain/use_case/fetch_customer_profile_usecase.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_profile/domain/use_case/update_customer_profile_usecase.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_profile/domain/use_case/upload_profile_image_usecase.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_profile/presentation/view_model/customer_profile/customer_profile_bloc.dart';
 import 'package:tottouchordertastemobileapplication/features/splash_onboarding_cubit.dart';
+import 'package:tottouchordertastemobileapplication/food_order/data/data_source/remote_data_source/food_order_remote_datasource.dart';
+import 'package:tottouchordertastemobileapplication/food_order/data/repository/food_order_repository_impl.dart';
+import 'package:tottouchordertastemobileapplication/food_order/domain/repository/food_order_repository.dart';
+import 'package:tottouchordertastemobileapplication/food_order/domain/use_case/cancel_food_order_usecase.dart';
+import 'package:tottouchordertastemobileapplication/food_order/domain/use_case/fetch_food_orders_usecase.dart';
+import 'package:tottouchordertastemobileapplication/food_order/domain/use_case/fetch_order_bill_usecase.dart';
+import 'package:tottouchordertastemobileapplication/food_order/domain/use_case/rate_order_usecase.dart';
+import 'package:tottouchordertastemobileapplication/food_order/domain/use_case/track_food_order_usecase.dart';
+import 'package:tottouchordertastemobileapplication/food_order/presentation/view_model/food_order/food_order_bloc.dart';
 
 final getIt = GetIt.instance;
 final _logger = Logger('DependencyInjection');
@@ -103,12 +132,14 @@ Future<void> _initExternalDependencies() async {
   try {
     _logger.info('Initializing external dependencies...');
 
+    getIt.registerLazySingleton<http.Client>(() => http.Client());
+    _logger.info('Registered http.Client');
+
     // Internet Connection Checker
     getIt.registerLazySingleton<InternetConnectionChecker>(
       () => InternetConnectionChecker(),
     );
 
-    // Configure and register Dio
     getIt.registerLazySingleton<Dio>(() {
       final dio = Dio(BaseOptions(
         baseUrl: ApiEndpoints.baseUrl,
@@ -170,6 +201,31 @@ Future<void> _initServices() async {
     // Initialize Sync Service
     await getIt<SyncService>().initialize();
 
+    // Register all sensor services first
+    getIt.registerLazySingleton<MotionSensorService>(
+        () => MotionSensorService());
+    getIt.registerLazySingleton<LocationService>(() => LocationService());
+    getIt.registerLazySingleton<ProximitySensorService>(
+        () => ProximitySensorService());
+    getIt.registerLazySingleton<LightSensorService>(() => LightSensorService());
+    getIt.registerLazySingleton<PedometerService>(() => PedometerService());
+    getIt.registerLazySingleton<BiometricAuthService>(
+        () => BiometricAuthService());
+
+    getIt.registerSingleton<SensorManager>(
+      SensorManager(
+        motionSensorService: getIt<MotionSensorService>(),
+        locationService: getIt<LocationService>(),
+        proximitySensorService: getIt<ProximitySensorService>(),
+        lightSensorService: getIt<LightSensorService>(),
+        pedometerService: getIt<PedometerService>(),
+        biometricAuthService: getIt<BiometricAuthService>(),
+      ),
+      dispose: (manager) {
+        manager.disposeSensors();
+      },
+    );
+
     _logger.info('✅ Services initialized');
   } catch (e) {
     _logger.severe('Failed to initialize services', e);
@@ -200,11 +256,34 @@ Future<void> _initDataSources() async {
         tokenManager: getIt<AuthTokenManager>(),
       ),
     );
+
+    getIt.registerLazySingleton<CustomerProfileDataSource>(
+      () => CustomerProfileRemoteDataSourceImpl(
+        dio: getIt<Dio>(),
+        tokenManager: getIt<AuthTokenManager>(),
+      ),
+      instanceName: 'remote',
+    );
+
+    getIt.registerLazySingleton<CustomerProfileDataSource>(
+      () => CustomerProfileLocalDataSourceImpl(
+        hiveService: getIt<HiveService>(),
+      ),
+      instanceName: 'local',
+    );
+
     // Customer Dashboard Data Source
     getIt.registerLazySingleton<CustomerDashboardRemoteDataSource>(
       () => CustomerDashboardRemoteDataSourceImpl(
         dio: getIt<Dio>(),
         prefs: getIt<SharedPreferencesService>(),
+        tokenManager: getIt<AuthTokenManager>(),
+      ),
+    );
+
+    getIt.registerLazySingleton<FoodOrderRemoteDataSource>(
+      () => FoodOrderRemoteDataSourceImpl(
+        dio: getIt<Dio>(),
         tokenManager: getIt<AuthTokenManager>(),
       ),
     );
@@ -249,6 +328,38 @@ Future<void> _initRepositories() async {
       );
     }
 
+    if (!getIt.isRegistered<CustomerProfileRepository>()) {
+      getIt.registerLazySingleton<CustomerProfileRepository>(
+        () => CustomerProfileRepositoryImpl(
+          remoteDataSource:
+              getIt<CustomerProfileDataSource>(instanceName: 'remote'),
+          localDataSource:
+              getIt<CustomerProfileDataSource>(instanceName: 'local'),
+        ),
+      );
+    }
+
+    if (!getIt.isRegistered<TableDataSource>()) {
+      getIt.registerLazySingleton<TableDataSource>(() => TableDataSourceImpl(
+            client: getIt<http.Client>(),
+          ));
+      _logger.info('📡 Registered TableDataSource');
+    }
+
+    // Register TableRepository
+    if (!getIt.isRegistered<TableRepository>()) {
+      getIt.registerLazySingleton<TableRepository>(() => TableRepositoryImpl(
+            dataSource: getIt<TableDataSource>(),
+            networkInfo: getIt<NetworkInfo>(),
+          ));
+      _logger.info('🗄️ Registered TableRepository');
+    }
+
+    getIt.registerLazySingleton<FoodOrderRepository>(
+      () => FoodOrderRepositoryImpl(
+        remoteDataSource: getIt<FoodOrderRemoteDataSource>(),
+      ),
+    );
     _logger.info('✅ Repositories initialized');
   } catch (e) {
     _logger.severe('Failed to initialize repositories', e);
@@ -315,6 +426,43 @@ Future<void> _initUseCases() async {
           getIt<OrderRepository>(),
         ));
 
+    getIt.registerLazySingleton(() => FetchCustomerProfileUseCase(
+          getIt<CustomerProfileRepository>(),
+        ));
+
+    getIt.registerLazySingleton(() => UpdateCustomerProfileUseCase(
+          getIt<CustomerProfileRepository>(),
+        ));
+
+    getIt.registerLazySingleton(() => DeleteCustomerProfileUseCase(
+          getIt<CustomerProfileRepository>(),
+        ));
+
+    // Add this new use case for image uploads
+    getIt.registerLazySingleton(() => UploadProfileImageUseCase(
+          getIt<CustomerProfileRepository>(),
+        ));
+
+    getIt.registerLazySingleton(() => FetchFoodOrdersUseCase(
+          getIt<FoodOrderRepository>(),
+        ));
+
+    getIt.registerLazySingleton(() => CancelFoodOrderUseCase(
+          getIt<FoodOrderRepository>(),
+        ));
+
+    getIt.registerLazySingleton(() => TrackFoodOrderUseCase(
+          getIt<FoodOrderRepository>(),
+        ));
+
+    getIt.registerLazySingleton(() => FetchBillUseCase(
+          getIt<FoodOrderRepository>(),
+        ));
+
+    getIt.registerLazySingleton(() => RateOrderUseCase(
+          getIt<FoodOrderRepository>(),
+        ));
+
     _logger.info('✅ Use cases initialized');
   } catch (e) {
     _logger.severe('Failed to initialize use cases', e);
@@ -354,6 +502,7 @@ Future<void> _initBlocs() async {
       getRestaurantTablesUseCase: getIt<GetRestaurantTablesUseCase>(),
       placeOrderUseCase: getIt<PlaceOrderUseCase>(),
       tokenManager: getIt<AuthTokenManager>(),
+      tableRepository: getIt<TableRepository>(),
     );
 
     // Register as a singleton with proper disposal
@@ -381,7 +530,31 @@ Future<void> _initBlocs() async {
           registerBloc: getIt<RegisterBloc>(),
           syncBloc: getIt<SyncBloc>(),
           tokenManager: getIt<AuthTokenManager>(),
+          preferencesService: getIt<SharedPreferencesService>(),
+          biometricAuthService: getIt<BiometricAuthService>(),
         ));
+
+    getIt.registerLazySingleton(() => CustomerProfileBloc(
+          fetchProfileUseCase: getIt<FetchCustomerProfileUseCase>(),
+          updateProfileUseCase: getIt<UpdateCustomerProfileUseCase>(),
+          uploadProfileImageUseCase: getIt<UploadProfileImageUseCase>(),
+          tokenManager: getIt<AuthTokenManager>(),
+        ));
+
+    if (!getIt.isRegistered<ProximityCubit>()) {
+      getIt.registerLazySingleton<ProximityCubit>(
+        () => ProximityCubit(),
+        dispose: (cubit) => cubit.close(),
+      );
+      _logger.info('📱 Registered ProximityCubit as singleton');
+    }
+
+    getIt.registerLazySingleton<FoodOrderBloc>(
+      () => FoodOrderBloc(
+        repository: getIt<FoodOrderRepository>(),
+      ),
+      dispose: (bloc) => bloc.close(),
+    );
 
     getIt.registerFactory(() => SplashOnboardingCubit());
     _logger.info('✅ Blocs initialized');

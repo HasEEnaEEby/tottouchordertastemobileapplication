@@ -10,12 +10,14 @@ class LoginParams extends Equatable {
   final String password;
   final String userType;
   final String? adminCode;
+  final bool isBiometricLogin;
 
   const LoginParams({
     required this.email,
     required this.password,
     required this.userType,
     this.adminCode,
+    this.isBiometricLogin = false
   });
 
   @override
