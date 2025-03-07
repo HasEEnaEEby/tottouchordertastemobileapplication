@@ -32,6 +32,9 @@ class _AppState extends State<App> with WidgetsBindingObserver {
   // Track if auto-theme based on light is enabled
   bool _isAutoThemeEnabled = false;
 
+  // Track proximity sensor state
+  bool _isNearDevice = false;
+
   @override
   void initState() {
     super.initState();
@@ -42,10 +45,11 @@ class _AppState extends State<App> with WidgetsBindingObserver {
       debugPrint("🔆 Current theme preference: ${themeCubit.preference}");
 
       if (themeCubit.preference == ThemePreference.auto) {
-        debugPrint("🔆 Auto theme is enabled, starting light sensor");
-        // Start the light sensor
+        debugPrint("🔆 Auto theme is enabled, starting sensors");
+        // Start the sensors
         final sensorManager = GetIt.instance<SensorManager>();
         sensorManager.lightSensorService.startListening();
+        sensorManager.proximitySensorService.startListening();
       }
     });
   }
@@ -88,17 +92,36 @@ class _AppState extends State<App> with WidgetsBindingObserver {
     try {
       final sensorManager = GetIt.instance<SensorManager>();
       final lightSensorService = sensorManager.lightSensorService;
+      final proximitySensorService = sensorManager.proximitySensorService;
+      final motionSensorService = sensorManager.motionSensorService; // Add this
 
       // Start light sensor
       lightSensorService.startListening();
-
-      // Setup light sensor to control theme when auto theme is enabled
       lightSensorService.addListener(_handleLightChange);
+
+      // Start proximity sensor
+      proximitySensorService.startListening();
+      proximitySensorService.addListener(_handleProximityChange);
+
+      // Connect proximity sensor to motion sensor service
+      proximitySensorService.addListener((isNear) {
+        motionSensorService.handleProximityChange(isNear);
+      });
 
       _logger.info('Sensors initialized successfully');
     } catch (e) {
       _logger.warning('Failed to initialize sensors: $e');
     }
+  }
+
+  void _handleProximityChange(bool isNear) {
+    _logger.info('📱 Proximity changed: ${isNear ? 'NEAR' : 'FAR'}');
+    setState(() {
+      _isNearDevice = isNear;
+    });
+
+    // Optional: Additional logging or actions
+    _logger.info('🔊 Proximity change may impact audio playback');
   }
 
   void _handleLightChange(int luxValue) {
@@ -173,6 +196,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
     try {
       final sensorManager = GetIt.instance<SensorManager>();
       sensorManager.lightSensorService.startListening();
+      sensorManager.proximitySensorService.startListening();
     } catch (e) {
       _logger.warning('Failed to resume sensors: $e');
     }
@@ -183,6 +207,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
     try {
       final sensorManager = GetIt.instance<SensorManager>();
       sensorManager.lightSensorService.stopListening();
+      sensorManager.proximitySensorService.stopListening();
     } catch (e) {
       _logger.warning('Failed to stop sensors: $e');
     }
@@ -198,6 +223,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
     try {
       final sensorManager = GetIt.instance<SensorManager>();
       sensorManager.lightSensorService.dispose();
+      sensorManager.proximitySensorService.dispose();
     } catch (e) {
       _logger.warning('Failed to dispose sensors: $e');
     }
@@ -233,10 +259,8 @@ class _AppState extends State<App> with WidgetsBindingObserver {
       ],
       child: Builder(
         builder: (context) {
-          // Listen to theme cubit changes to track auto-theme status
           return BlocListener<ThemeCubit, ThemeMode>(
             listener: (context, themeMode) {
-              // Update auto theme tracking based on theme cubit's preference
               setState(() {
                 _isAutoThemeEnabled = context.read<ThemeCubit>().preference ==
                     ThemePreference.auto;
@@ -249,12 +273,12 @@ class _AppState extends State<App> with WidgetsBindingObserver {
               theme: AppTheme.lightTheme,
               darkTheme: AppTheme.darkTheme,
               themeMode: context.watch<ThemeCubit>().state,
-              home: const FlashScreen(),
+              home: const SplashView(),
               builder: (context, child) {
-                // Apply visual adjustments based on light conditions
+                // Apply visual adjustments based on sensors
                 return ScrollConfiguration(
                   behavior: const ScrollBehavior(),
-                  child: _applyLightAdjustments(context, child),
+                  child: _applyVisualAdjustments(context, child),
                 );
               },
               navigatorObservers: [
@@ -267,9 +291,41 @@ class _AppState extends State<App> with WidgetsBindingObserver {
     );
   }
 
-  // Apply visual adjustments based on light level
-  Widget _applyLightAdjustments(BuildContext context, Widget? child) {
-    // Only apply adjustments if auto theme is enabled
+  // Combined method to apply all visual adjustments
+  Widget _applyVisualAdjustments(BuildContext context, Widget? child) {
+    Widget adjustedChild = child ?? const SizedBox();
+
+    // Apply proximity-based adjustments
+    if (_isNearDevice) {
+      // Dim the screen when near (e.g., phone held to face)
+      adjustedChild = ColorFiltered(
+        colorFilter: const ColorFilter.matrix([
+          0.5,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0.5,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0.5,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+        ]), // Dim the screen by reducing brightness
+        child: adjustedChild,
+      );
+    }
+
+    // Then apply light-based adjustments if enabled
     if (_isAutoThemeEnabled) {
       try {
         final sensorManager = GetIt.instance<SensorManager>();
@@ -277,7 +333,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
 
         // For very bright environments, increase contrast slightly
         if (lightService.currentLux > LightSensorService.brightThreshold) {
-          return ColorFiltered(
+          adjustedChild = ColorFiltered(
             colorFilter: const ColorFilter.matrix([
               1.1,
               0,
@@ -300,12 +356,12 @@ class _AppState extends State<App> with WidgetsBindingObserver {
               1,
               0,
             ]), // Increase contrast
-            child: child ?? const SizedBox(),
+            child: adjustedChild,
           );
         }
         // For very dark environments, apply a warm filter to reduce eye strain
         else if (lightService.currentLux < LightSensorService.darkThreshold) {
-          return ColorFiltered(
+          adjustedChild = ColorFiltered(
             colorFilter: const ColorFilter.matrix([
               0.9,
               0.1,
@@ -328,7 +384,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
               1,
               0,
             ]), // Slight warm tint
-            child: child ?? const SizedBox(),
+            child: adjustedChild,
           );
         }
       } catch (e) {
@@ -336,8 +392,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
       }
     }
 
-    // Default - no adjustments
-    return child ?? const SizedBox();
+    return adjustedChild;
   }
 }
 

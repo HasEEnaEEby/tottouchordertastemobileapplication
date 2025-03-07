@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get_it/get_it.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:tottouchordertastemobileapplication/app/app.dart';
 import 'package:tottouchordertastemobileapplication/app/di/di.dart';
 import 'package:tottouchordertastemobileapplication/core/common/internet_checker.dart';
+import 'package:tottouchordertastemobileapplication/core/proximity/proximity_cubit.dart';
+import 'package:tottouchordertastemobileapplication/core/sensors/sensor_manager.dart';
 import 'package:tottouchordertastemobileapplication/core/theme/theme_cubit.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/data/model/auth_hive_model.dart';
 import 'package:tottouchordertastemobileapplication/features/auth/data/model/sync_hive_model.dart';
@@ -23,6 +26,7 @@ void main() async {
       MultiBlocProvider(
         providers: [
           BlocProvider(create: (_) => ThemeCubit()),
+          BlocProvider(create: (_) => ProximityCubit()),
         ],
         child: const App(),
       ),
@@ -107,5 +111,25 @@ class ErrorApp extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class ProximityAwareBlocObserver extends BlocObserver {
+  @override
+  void onEvent(Bloc bloc, Object? event) {
+    super.onEvent(bloc, event);
+
+    try {
+      final getIt = GetIt.instance;
+      final sensorManager = getIt<SensorManager>();
+      final isNear = sensorManager.proximitySensorService.isNear;
+
+      if (isNear) {
+        debugPrint(
+            '📱 Bloc event while device near face: ${bloc.runtimeType} - $event');
+      }
+    } catch (e) {
+      // Handle gracefully if proximity sensor not available
+    }
   }
 }

@@ -29,6 +29,10 @@
     <key>UIMainStoryboardFile</key>
     <string>Main</string>
 
+    <!-- Shake -->
+    <key>NSMotionUsageDescription</key>
+    <string>Motion data is used to enhance user experience with shake recommendations</string>
+
     <!-- Camera Permission -->
     <key>NSCameraUsageDescription</key>
     <string>Camera access is required to scan QR codes for table verification</string>

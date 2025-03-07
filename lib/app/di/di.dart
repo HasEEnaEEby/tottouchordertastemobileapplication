@@ -15,7 +15,7 @@ import 'package:tottouchordertastemobileapplication/core/auth/auth_token_manager
 import 'package:tottouchordertastemobileapplication/core/common/internet_checker.dart';
 import 'package:tottouchordertastemobileapplication/core/network/hive_box_manager.dart';
 import 'package:tottouchordertastemobileapplication/core/network/hive_service.dart';
-import 'package:tottouchordertastemobileapplication/core/sensors/barometer_service.dart';
+import 'package:tottouchordertastemobileapplication/core/proximity/proximity_cubit.dart';
 import 'package:tottouchordertastemobileapplication/core/sensors/biometric_auth_service.dart';
 import 'package:tottouchordertastemobileapplication/core/sensors/light_sensor_service.dart';
 import 'package:tottouchordertastemobileapplication/core/sensors/location_service.dart';
@@ -58,6 +58,15 @@ import 'package:tottouchordertastemobileapplication/features/customer_profile/do
 import 'package:tottouchordertastemobileapplication/features/customer_profile/domain/use_case/upload_profile_image_usecase.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_profile/presentation/view_model/customer_profile/customer_profile_bloc.dart';
 import 'package:tottouchordertastemobileapplication/features/splash_onboarding_cubit.dart';
+import 'package:tottouchordertastemobileapplication/food_order/data/data_source/remote_data_source/food_order_remote_datasource.dart';
+import 'package:tottouchordertastemobileapplication/food_order/data/repository/food_order_repository_impl.dart';
+import 'package:tottouchordertastemobileapplication/food_order/domain/repository/food_order_repository.dart';
+import 'package:tottouchordertastemobileapplication/food_order/domain/use_case/cancel_food_order_usecase.dart';
+import 'package:tottouchordertastemobileapplication/food_order/domain/use_case/fetch_food_orders_usecase.dart';
+import 'package:tottouchordertastemobileapplication/food_order/domain/use_case/fetch_order_bill_usecase.dart';
+import 'package:tottouchordertastemobileapplication/food_order/domain/use_case/rate_order_usecase.dart';
+import 'package:tottouchordertastemobileapplication/food_order/domain/use_case/track_food_order_usecase.dart';
+import 'package:tottouchordertastemobileapplication/food_order/presentation/view_model/food_order/food_order_bloc.dart';
 
 final getIt = GetIt.instance;
 final _logger = Logger('DependencyInjection');
@@ -199,22 +208,22 @@ Future<void> _initServices() async {
     getIt.registerLazySingleton<ProximitySensorService>(
         () => ProximitySensorService());
     getIt.registerLazySingleton<LightSensorService>(() => LightSensorService());
-    getIt.registerLazySingleton<BarometerService>(() => BarometerService());
     getIt.registerLazySingleton<PedometerService>(() => PedometerService());
     getIt.registerLazySingleton<BiometricAuthService>(
         () => BiometricAuthService());
 
-    // Then register SensorManager with all dependencies
     getIt.registerSingleton<SensorManager>(
       SensorManager(
         motionSensorService: getIt<MotionSensorService>(),
         locationService: getIt<LocationService>(),
         proximitySensorService: getIt<ProximitySensorService>(),
         lightSensorService: getIt<LightSensorService>(),
-        barometerService: getIt<BarometerService>(),
         pedometerService: getIt<PedometerService>(),
         biometricAuthService: getIt<BiometricAuthService>(),
       ),
+      dispose: (manager) {
+        manager.disposeSensors();
+      },
     );
 
     _logger.info('✅ Services initialized');
@@ -268,6 +277,13 @@ Future<void> _initDataSources() async {
       () => CustomerDashboardRemoteDataSourceImpl(
         dio: getIt<Dio>(),
         prefs: getIt<SharedPreferencesService>(),
+        tokenManager: getIt<AuthTokenManager>(),
+      ),
+    );
+
+    getIt.registerLazySingleton<FoodOrderRemoteDataSource>(
+      () => FoodOrderRemoteDataSourceImpl(
+        dio: getIt<Dio>(),
         tokenManager: getIt<AuthTokenManager>(),
       ),
     );
@@ -339,6 +355,11 @@ Future<void> _initRepositories() async {
       _logger.info('🗄️ Registered TableRepository');
     }
 
+    getIt.registerLazySingleton<FoodOrderRepository>(
+      () => FoodOrderRepositoryImpl(
+        remoteDataSource: getIt<FoodOrderRemoteDataSource>(),
+      ),
+    );
     _logger.info('✅ Repositories initialized');
   } catch (e) {
     _logger.severe('Failed to initialize repositories', e);
@@ -422,6 +443,26 @@ Future<void> _initUseCases() async {
           getIt<CustomerProfileRepository>(),
         ));
 
+    getIt.registerLazySingleton(() => FetchFoodOrdersUseCase(
+          getIt<FoodOrderRepository>(),
+        ));
+
+    getIt.registerLazySingleton(() => CancelFoodOrderUseCase(
+          getIt<FoodOrderRepository>(),
+        ));
+
+    getIt.registerLazySingleton(() => TrackFoodOrderUseCase(
+          getIt<FoodOrderRepository>(),
+        ));
+
+    getIt.registerLazySingleton(() => FetchBillUseCase(
+          getIt<FoodOrderRepository>(),
+        ));
+
+    getIt.registerLazySingleton(() => RateOrderUseCase(
+          getIt<FoodOrderRepository>(),
+        ));
+
     _logger.info('✅ Use cases initialized');
   } catch (e) {
     _logger.severe('Failed to initialize use cases', e);
@@ -499,6 +540,21 @@ Future<void> _initBlocs() async {
           uploadProfileImageUseCase: getIt<UploadProfileImageUseCase>(),
           tokenManager: getIt<AuthTokenManager>(),
         ));
+
+    if (!getIt.isRegistered<ProximityCubit>()) {
+      getIt.registerLazySingleton<ProximityCubit>(
+        () => ProximityCubit(),
+        dispose: (cubit) => cubit.close(),
+      );
+      _logger.info('📱 Registered ProximityCubit as singleton');
+    }
+
+    getIt.registerLazySingleton<FoodOrderBloc>(
+      () => FoodOrderBloc(
+        repository: getIt<FoodOrderRepository>(),
+      ),
+      dispose: (bloc) => bloc.close(),
+    );
 
     getIt.registerFactory(() => SplashOnboardingCubit());
     _logger.info('✅ Blocs initialized');
