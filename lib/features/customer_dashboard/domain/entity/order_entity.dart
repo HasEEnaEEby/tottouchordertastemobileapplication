@@ -30,10 +30,40 @@ class OrderEntity extends Equatable {
   });
 
   factory OrderEntity.fromJson(Map<String, dynamic> json) {
+    // Handle customer field (can be a string ID or a map)
+    String? customerId;
+    if (json['customer'] is String) {
+      customerId = json['customer'];
+    } else if (json['customer'] is Map ||
+        json['customer'] is Map<String, dynamic>) {
+      customerId = json['customer']['_id']?.toString();
+    }
+
+    // Handle restaurant field (can be a string ID, a map, or null)
+    String restaurantId;
+    if (json['restaurant'] is String) {
+      restaurantId = json['restaurant'];
+    } else if (json['restaurant'] is Map ||
+        json['restaurant'] is Map<String, dynamic>) {
+      restaurantId = json['restaurant']['_id']?.toString() ?? '';
+    } else {
+      restaurantId = '';
+    }
+
+    // Handle table field (can be a string ID or a map)
+    String tableId;
+    if (json['table'] is String) {
+      tableId = json['table'];
+    } else if (json['table'] is Map || json['table'] is Map<String, dynamic>) {
+      tableId = json['table']['_id']?.toString() ?? '';
+    } else {
+      tableId = '';
+    }
+
     return OrderEntity(
       id: json['_id'] ?? '',
-      restaurantId: json['restaurant'] ?? '',
-      tableId: json['table'] ?? '',
+      restaurantId: restaurantId,
+      tableId: tableId,
       status: json['status'] ?? 'pending',
       items: json['items'] != null
           ? List<OrderItemEntity>.from(
@@ -47,7 +77,7 @@ class OrderEntity extends Equatable {
           ? DateTime.parse(json['completedAt'])
           : null,
       specialInstructions: json['specialInstructions'],
-      customerId: json['customer'],
+      customerId: customerId,
       customerName: json['customerName'],
       customerEmail: json['customerEmail'],
     );
@@ -117,8 +147,19 @@ class OrderItemEntity extends Equatable {
   });
 
   factory OrderItemEntity.fromJson(Map<String, dynamic> json) {
+    // Handle menuItem field (can be a string ID or a map)
+    String menuItemId;
+    if (json['menuItem'] is String) {
+      menuItemId = json['menuItem'];
+    } else if (json['menuItem'] is Map ||
+        json['menuItem'] is Map<String, dynamic>) {
+      menuItemId = json['menuItem']['_id']?.toString() ?? '';
+    } else {
+      menuItemId = '';
+    }
+
     return OrderItemEntity(
-      menuItemId: json['menuItem'] ?? '',
+      menuItemId: menuItemId,
       name: json['name'] ?? '',
       price: (json['price'] ?? 0).toDouble(),
       quantity: json['quantity'] ?? 1,

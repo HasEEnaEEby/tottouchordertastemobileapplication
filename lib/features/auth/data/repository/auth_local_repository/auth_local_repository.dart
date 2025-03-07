@@ -620,14 +620,20 @@ class AuthLocalRepositoryImpl implements AuthRepository {
         return Right(TokenResponse.fromJson(response.data['data']));
       } else {
         debugPrint('❌ Repository: Invalid response from refresh endpoint');
-        return const Left(ServerFailure('Invalid response from server'));
+        return const Left(ServerFailure(
+            'Invalid response from server')); // Changed to ServerFailure
       }
     } on DioException catch (e) {
       debugPrint('❌ Repository: Refresh token network error: ${e.message}');
-      return Left(NetworkFailure('Network error: ${e.message}'));
+      return Left(NetworkFailure(
+          'Network error: ${e.message}')); // Changed to NetworkFailure
     } catch (e) {
       debugPrint('❌ Repository: Refresh token error: $e');
-      return Left(ServerFailure('Failed to refresh token: ${e.toString()}'));
+      return Left(ServerFailure(
+          'Failed to refresh token: ${e.toString()}')); // Changed to ServerFailure
     }
   }
+
+
+
 }

@@ -68,6 +68,8 @@ class CustomerDashboardBloc
     on<CheckAuthStatusEvent>(_onCheckAuthStatus);
     on<ValidateTableQREvent>(_onValidateTableQR);
     on<UnselectTableEvent>(_onUnselectTable);
+    on<ToggleFavoritesFilterEvent>(_onToggleFavoritesFilter);
+    on<PreserveRestaurantsEvent>(_onPreserveRestaurants);
   }
 
   Future<void> _onLoadRestaurants(
@@ -103,6 +105,41 @@ class CustomerDashboardBloc
       emit(CustomerDashboardError(message: e.toString()));
     } finally {
       _isLoading = false;
+    }
+  }
+
+  void _onToggleFavoritesFilter(
+    ToggleFavoritesFilterEvent event,
+    Emitter<CustomerDashboardState> emit,
+  ) {
+    final currentState = state;
+
+    if (currentState is RestaurantsLoaded) {
+      emit(CustomerDashboardTabChanged(
+        selectedIndex: 0, // Default to restaurants tab
+        restaurants: _restaurants,
+        showFavoritesOnly: event.showFavoritesOnly,
+      ));
+    } else if (currentState is CustomerDashboardTabChanged) {
+      emit(CustomerDashboardTabChanged(
+        selectedIndex: currentState.selectedIndex,
+        restaurants: currentState.restaurants,
+        showFavoritesOnly: event.showFavoritesOnly,
+      ));
+    }
+  }
+
+  void _onPreserveRestaurants(
+    PreserveRestaurantsEvent event,
+    Emitter<CustomerDashboardState> emit,
+  ) {
+    // Check if we already have loaded restaurants
+    if (_restaurants.isNotEmpty) {
+      debugPrint('🔄 Preserving ${_restaurants.length} loaded restaurants');
+      emit(RestaurantsLoaded(restaurants: List.from(_restaurants)));
+    } else {
+      debugPrint('⚠️ No restaurants to preserve, triggering load');
+      add(LoadRestaurantsEvent());
     }
   }
 
@@ -196,8 +233,6 @@ class CustomerDashboardBloc
       _isProcessingEvents = false;
     }
   }
-  // final Set<Type> _processedEventTypes = {};
-  // final Duration _eventCooldownDuration = const Duration(milliseconds: 500);
 
   @override
   void add(CustomerDashboardEvent event) {

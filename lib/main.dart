@@ -101,7 +101,7 @@ class ErrorApp extends StatelessWidget {
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () {
-                    main(); // Restart app
+                    main(); 
                   },
                   child: const Text('Retry'),
                 ),

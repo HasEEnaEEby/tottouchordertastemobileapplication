@@ -29,7 +29,6 @@ class CustomerProfile extends Equatable {
     this.additionalInfo = const {},
   });
 
-  // Convenience getters
   String get name => displayName ?? username;
 
   int get loyaltyPoints => additionalInfo['loyaltyPoints'] is int

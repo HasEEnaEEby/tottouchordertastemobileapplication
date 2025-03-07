@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class AppColors {
   // Primary brand colors
-  static const Color primary = Color(0xFFD32F2F); // Deep Red
+  static const Color primary = Color.fromARGB(255, 100, 5, 5); // Deep Red
   static const Color secondary = Color(0xFF1976D2); // Professional Blue
   static const Color accent = Color(0xFF00796B); // Deep Teal
 

@@ -17,10 +17,8 @@ class LightSensorService {
   static const int normalThreshold = 200;
   static const int brightThreshold = 1000;
 
-  // Get the current light level
   int get currentLux => _currentLux;
 
-  // Determine if the environment is dark
   bool get isDarkEnvironment => _currentLux < dimThreshold;
 
   // Get the current brightness level category
@@ -57,42 +55,35 @@ class LightSensorService {
     }
   }
 
-  // Stop listening to light sensor events
   void stopListening() {
     _lightSubscription?.cancel();
     _lightSubscription = null;
     debugPrint("Light sensor listening stopped");
   }
 
-  // Add a listener to be notified of light level changes
   void addListener(Function(int) listener) {
     _listeners.add(listener);
   }
 
-  // Remove a previously added listener
   void removeListener(Function(int) listener) {
     _listeners.remove(listener);
   }
 
-  // Notify all listeners of light level changes
   void _notifyListeners() {
     for (var listener in _listeners) {
       listener(_currentLux);
     }
   }
 
-  // Dispose resources when service is no longer needed
   void dispose() {
     stopListening();
     _listeners.clear();
   }
 
-  // Get appropriate ThemeMode based on ambient light
   ThemeMode getRecommendedThemeMode() {
     return isDarkEnvironment ? ThemeMode.dark : ThemeMode.light;
   }
 
-  // Get brightness category based on light level
   String getLightLevelDescription() {
     switch (currentBrightnessLevel) {
       case LightLevel.dark:

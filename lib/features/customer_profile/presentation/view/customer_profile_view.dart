@@ -15,8 +15,14 @@ import 'package:tottouchordertastemobileapplication/features/customer_profile/pr
 import 'package:tottouchordertastemobileapplication/features/customer_profile/presentation/widget/profile_picture_widget.dart';
 
 class CustomerProfileView extends StatefulWidget {
-  const CustomerProfileView({super.key});
+  final VoidCallback? onMotionSensorToggle;
+  final bool isSensorEnabled;
 
+  const CustomerProfileView({
+    super.key,
+    this.onMotionSensorToggle,
+    this.isSensorEnabled = false,
+  });
   @override
   State<CustomerProfileView> createState() => _CustomerProfileViewState();
 }
@@ -34,8 +40,9 @@ class _CustomerProfileViewState extends State<CustomerProfileView> {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor:
-          isDarkMode ? AppColors.backgroundDark : AppColors.background,
+      backgroundColor: isDarkMode
+          ? const Color.fromARGB(255, 9, 9, 9)
+          : AppColors.background,
       body: BlocConsumer<CustomerProfileBloc, CustomerProfileState>(
         listener: (context, state) {
           if (state is CustomerProfileError) {
@@ -397,7 +404,6 @@ class _CustomerProfileViewState extends State<CustomerProfileView> {
                       ],
                     ),
                     const SizedBox(height: 8),
-// Quick Stats with Animated Progress
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [

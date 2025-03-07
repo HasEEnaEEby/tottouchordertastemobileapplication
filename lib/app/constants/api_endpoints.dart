@@ -155,6 +155,9 @@ class ApiEndpoints {
   static String get resendVerification => "$baseUrl/auth/resend-verification";
   static String get refreshToken => "$baseUrl/auth/refresh-token";
   static String get logout => "$baseUrl/auth/logout";
+  // In lib/app/constants/api_endpoints.dart
+  static String get toggleBiometricLogin =>
+      "$baseUrl/auth/toggle-biometric-login";
 
   // ====================== Profile Management ======================
   static String get profile => "$baseUrl/auth/profile";
@@ -205,6 +208,23 @@ class ApiEndpoints {
   static String get getCustomerOrders => "$baseUrl/orders/customer";
   static String cancelOrder(String orderId) => "$baseUrl$_orderBase/$orderId";
 
+  static String get getUserOrders => "$baseUrl$_orderBase/history";
+  static String get getActiveOrder => "$baseUrl$_orderBase/active";
+  static String addItemsToOrder(String orderId) =>
+      "$baseUrl$_orderBase/$orderId/items";
+  static String requestBill(String orderId) =>
+      "$baseUrl$_orderBase/$orderId/request-bill";
+  static String getBillDetails(String orderId) =>
+      "$baseUrl$_orderBase/$orderId/bill";
+  static String generateBill(String orderId) =>
+      "$baseUrl$_orderBase/$orderId/generate-bill";
+  static String uploadBillQrCode(String billId) =>
+      "$baseUrl$_orderBase/bills/$billId/upload-qr";
+
+  // Restaurant specific order endpoints
+  static String get getRestaurantOrders => "$baseUrl$_orderBase/restaurant";
+  static String getOrdersByRestaurantId(String restaurantId) =>
+      "$baseUrl$_orderBase/restaurant/$restaurantId";
   // ====================== Table Routes ======================
   static String getTableById(String tableId) => "$baseUrl/tables/$tableId";
   static String updateTableStatus(String tableId) =>
@@ -246,6 +266,11 @@ class ApiEndpoints {
   static String get getDashboardStats => "$baseUrl$_dashboardBase/stats";
   static String get getRevenueAnalytics => "$baseUrl$_dashboardBase/revenue";
   static String get getOrderAnalytics => "$baseUrl$_dashboardBase/orders";
+
+  // Restaurant specific order endpoints
+  // static String get getRestaurantOrders => "$baseUrl$_orderBase/restaurant";
+  // static String getOrdersByRestaurantId(String restaurantId) =>
+  //     "$baseUrl$_orderBase/restaurant/$restaurantId";
 
   // ====================== Helper Methods ======================
   static String generateRoute(String basePath, [String? id]) {

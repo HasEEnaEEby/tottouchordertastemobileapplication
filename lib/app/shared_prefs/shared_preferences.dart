@@ -125,23 +125,17 @@ class SharedPreferencesService {
   bool isOnboardingCompleted() {
     return _prefs.getBool(keyOnboardingCompleted) ?? false;
   }
-
-  /// ✅ Set Theme Mode (light/dark/system)
   Future<void> setThemeMode(String mode) async {
     await _prefs.setString(keyThemeMode, mode);
   }
-
-  /// ✅ Get Theme Mode
   String getThemeMode() {
     return _prefs.getString(keyThemeMode) ?? 'system';
   }
 
-  /// ✅ Set Preferred Language
   Future<void> setLanguage(String languageCode) async {
     await _prefs.setString(keyLanguage, languageCode);
   }
 
-  /// ✅ Get Preferred Language
   String getLanguage() {
     return _prefs.getString(keyLanguage) ?? 'en';
   }

@@ -126,18 +126,20 @@ class ProfileLoaded extends CustomerDashboardState {
 class CustomerDashboardTabChanged extends CustomerDashboardState {
   final int selectedIndex;
   final List<RestaurantEntity> restaurants;
+  final bool showFavoritesOnly;
 
   const CustomerDashboardTabChanged({
     required this.selectedIndex,
     required this.restaurants,
+    this.showFavoritesOnly = false,
   });
 
   @override
-  List<Object?> get props => [selectedIndex, restaurants];
+  List<Object?> get props => [selectedIndex, restaurants, showFavoritesOnly];
 
   @override
   String toString() =>
-      'CustomerDashboardTabChanged(selectedIndex: $selectedIndex)';
+      'CustomerDashboardTabChanged(selectedIndex: $selectedIndex, showFavoritesOnly: $showFavoritesOnly)';
 }
 
 // Error States

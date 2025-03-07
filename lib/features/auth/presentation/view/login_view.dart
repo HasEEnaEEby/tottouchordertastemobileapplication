@@ -107,23 +107,40 @@ class _LoginViewState extends State<LoginView>
                   await _biometricAuthService.isDeviceSupportedBiometrics();
 
               if (isSupported) {
-                await _sharedPreferencesService.setBool(
-                    SharedPreferencesService.keyBiometricLoginEnabled, true);
-                await _sharedPreferencesService.setString(
-                    SharedPreferencesService.keyBiometricLoginEmail,
-                    _emailController.text.trim());
+                // First enable on server side
+                final loginBloc = context.read<LoginBloc>();
+                final serverEnabled =
+                    await loginBloc.enableBiometricLoginOnServer();
 
-                setState(() {
-                  _isBiometricLoginAvailable = true;
-                });
+                if (serverEnabled) {
+                  // Then enable locally
+                  await _sharedPreferencesService.setBool(
+                      SharedPreferencesService.keyBiometricLoginEnabled, true);
+                  await _sharedPreferencesService.setString(
+                      SharedPreferencesService.keyBiometricLoginEmail,
+                      _emailController.text.trim());
 
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Biometric login enabled successfully'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                  setState(() {
+                    _isBiometricLoginAvailable = true;
+                  });
+
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Biometric login enabled successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } else {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content:
+                          Text('Failed to enable biometric login on server'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
               } else {
                 Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -147,7 +164,11 @@ class _LoginViewState extends State<LoginView>
     return BlocListener<LoginBloc, LoginState>(
       listener: (context, state) {
         if (state is LoginSuccess) {
-          // Prompt to enable biometric login if not already enabled
+          // Store password for biometric login
+          _sharedPreferencesService.setString(
+              'last_used_password', _passwordController.text);
+
+          // Rest of your existing code...
           if (!_isBiometricLoginAvailable) {
             _enableBiometricLogin();
           }

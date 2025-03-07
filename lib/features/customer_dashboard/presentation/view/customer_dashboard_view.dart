@@ -3,17 +3,26 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:tottouchordertastemobileapplication/core/config/app_colors.dart';
 import 'package:tottouchordertastemobileapplication/core/config/text_styles.dart';
-import 'package:tottouchordertastemobileapplication/features/auth/presentation/widget/proximity_sensord_demo.dart';
+import 'package:tottouchordertastemobileapplication/core/sensors/motion_sensor_service.dart';
+import 'package:tottouchordertastemobileapplication/core/sensors/sensor_manager.dart';
+import 'package:tottouchordertastemobileapplication/core/theme/theme_cubit.dart';
+import 'package:tottouchordertastemobileapplication/core/theme/theme_helper.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/domain/entity/restaurant_entity.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/view_model/customer_dashboard/customer_dashboard_bloc.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/view_model/customer_dashboard/customer_dashboard_event.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/view_model/customer_dashboard/customer_dashboard_state.dart';
+import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/view_model/favorites/favorites_cubit.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/widget/notifications_view.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/widget/qr_code_scanner.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_dashboard/presentation/widget/restaurants_list_view.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_profile/presentation/view/customer_profile_view.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_profile/presentation/view_model/customer_profile/customer_profile_bloc.dart';
 import 'package:tottouchordertastemobileapplication/features/customer_profile/presentation/view_model/customer_profile/customer_profile_event.dart';
+import 'package:tottouchordertastemobileapplication/food_order/domain/entity/food_order_entity.dart';
+import 'package:tottouchordertastemobileapplication/food_order/presentation/view/order_tracking_view.dart';
+import 'package:tottouchordertastemobileapplication/food_order/presentation/view_model/food_order/food_order_bloc.dart';
+import 'package:tottouchordertastemobileapplication/food_order/presentation/view_model/food_order/food_order_event.dart';
+import 'package:tottouchordertastemobileapplication/food_order/presentation/view_model/food_order/food_order_state.dart';
 
 class CustomerDashboardView extends StatefulWidget {
   final String userName;
@@ -29,7 +38,14 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
   late final CustomerDashboardBloc _dashboardBloc;
   final TextEditingController _searchController = TextEditingController();
 
+  late final MotionSensorService _motionSensorService;
+  late final SensorManager _sensorManager;
+  bool _isSensorEnabled = false;
+
   int _selectedNavIndex = 0;
+  bool _isDarkMode = false;
+  late ThemeColors _themeColors;
+  bool _showFavoritesOnly = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -38,15 +54,81 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
   void initState() {
     super.initState();
     _dashboardBloc = context.read<CustomerDashboardBloc>();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Initialize SensorManager
+      _sensorManager = GetIt.instance<SensorManager>();
+
+      // Initialize MotionSensorService
+      _motionSensorService = GetIt.instance<MotionSensorService>();
+
+      // Ensure sensors are started with force flag
+      _sensorManager.initializeAllSensors(force: true);
+
+      // Add shake listener with more robust logging
+      _motionSensorService.addShakeListener(() {
+        // Use a safer method to check if the widget is still mounted
+        if (mounted) {
+          print('🤚 Phone Shake Detected!');
+          _onShakeDetected();
+
+          // Attempt to play sound directly
+          _motionSensorService.playShakeSound().then((_) {
+            print('✅ Shake sound played successfully');
+          }).catchError((error) {
+            print('❌ Shake sound playback error: $error');
+          });
+        } else {
+          print('🚫 Shake detected, but widget is not mounted');
+        }
+      });
+
+      // Enable sound for shake detection
+      _motionSensorService.enableSound();
+      print('Sound enabled: ${_motionSensorService.isSoundEnabled}');
+
+      // Add accelerometer listener for debugging
+      _motionSensorService.addAccelerometerListener((event) {
+        // print(
+        //     'Accelerometer: x=${event.x.toStringAsFixed(2)}, y=${event.y.toStringAsFixed(2)}, z=${event.z.toStringAsFixed(2)}');
+      });
+    });
+
+    // Initialize other data and UI
     _initializeData();
+    _updateThemeMode();
+  }
+
+  void _updateThemeMode() {
+    final themeCubit = context.read<ThemeCubit>();
+    setState(() {
+      _isDarkMode = themeCubit.state == ThemeMode.dark;
+      _themeColors = ThemeHelper.fromDarkMode(_isDarkMode);
+    });
   }
 
   void _initializeData() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_dashboardBloc.isClosed &&
-          _dashboardBloc.state is! RestaurantsLoaded) {
-        _dashboardBloc.add(LoadRestaurantsEvent());
+      if (!_dashboardBloc.isClosed) {
+        final currentState = _dashboardBloc.state;
+        if (currentState is! RestaurantsLoaded &&
+            currentState is! CustomerDashboardTabChanged) {
+          // Check if we need to load restaurants
+          _dashboardBloc.add(LoadRestaurantsEvent());
+        } else {
+          // If restaurants are already loaded, preserve them
+          _dashboardBloc.add(PreserveRestaurantsEvent());
+        }
       }
+    });
+  }
+
+  void _testSoundPlayback() {
+    debugPrint('🧪 Testing sound playback directly...');
+    _motionSensorService.playShakeSound().then((_) {
+      debugPrint('✅ Test sound playback completed');
+    }).catchError((error) {
+      debugPrint('❌ Test sound error: $error');
     });
   }
 
@@ -57,7 +139,7 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
         await Future.delayed(const Duration(seconds: 1));
       },
       color: AppColors.primary,
-      backgroundColor: Colors.white,
+      backgroundColor: _isDarkMode ? Colors.grey[700] : Colors.white,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         child: Column(
@@ -65,11 +147,10 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
           children: [
             _buildHeader(),
             _buildSearchBar(),
-            // _buildFoodCategories(),
+            const RestaurantsListView(),
             _buildPromotionBanner(),
             _buildFilterOptions(),
             _buildCuisineExplorer(),
-            const RestaurantsListView(),
             _buildTableOrderingSection(),
             _buildPopularDishes()
           ],
@@ -78,52 +159,137 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
     );
   }
 
+  void _toggleMotionSensor() {
+    setState(() {
+      _isSensorEnabled = !_isSensorEnabled;
+
+      if (_isSensorEnabled) {
+        _motionSensorService.startListening();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Motion sensor activated. Shake to get a random restaurant!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        _motionSensorService.stopListening();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Motion sensor deactivated.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    });
+  }
+
+  void _onShakeDetected() {
+    // Check if the widget is still mounted before showing the dialog
+    if (!mounted) return;
+
+    // Get current restaurants from the bloc
+    final currentState = _dashboardBloc.state;
+    if (currentState is RestaurantsLoaded &&
+        currentState.restaurants.isNotEmpty) {
+      // Randomly select a restaurant
+      final restaurants = currentState.restaurants;
+      final randomRestaurant =
+          restaurants[DateTime.now().millisecond % restaurants.length];
+
+      // Show recommendation dialog
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Shake Recommendation 🍽️'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('How about trying'),
+              Text(
+                randomRestaurant.restaurantName,
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold, color: AppColors.primary),
+              ),
+              Text('Located at ${randomRestaurant.location}'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: BlocConsumer<CustomerDashboardBloc, CustomerDashboardState>(
-          bloc: _dashboardBloc,
-          listener: (context, state) {
-            if (state is CustomerDashboardError) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(state.message),
-                  behavior: SnackBarBehavior.floating,
-                  backgroundColor: AppColors.error,
-                ),
-              );
-            }
-          },
-          builder: (context, state) {
-            if (state is CustomerDashboardLoading) {
-              return _buildLoadingState();
-            }
+    _themeColors = ThemeHelper.fromDarkMode(_isDarkMode);
 
-            if (state is RestaurantsLoaded) {
-              return _buildDashboardContent(state.restaurants);
-            }
-
-            return _buildErrorState('Unable to load restaurants');
+    return BlocProvider(
+        create: (context) => GetIt.instance<FavoritesCubit>(),
+        child: BlocListener<ThemeCubit, ThemeMode>(
+          listener: (context, themeMode) {
+            _updateThemeMode();
           },
-        ),
-      ),
-      bottomNavigationBar: _buildBottomNavigationBar(),
-    );
+          child: Scaffold(
+            backgroundColor: _themeColors.backgroundColor,
+            body: SafeArea(
+              child:
+                  BlocConsumer<CustomerDashboardBloc, CustomerDashboardState>(
+                bloc: _dashboardBloc,
+                listener: (context, state) {
+                  if (state is CustomerDashboardError) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          state.message,
+                          style: TextStyle(
+                            color: _isDarkMode ? Colors.white : Colors.black,
+                          ),
+                        ),
+                        behavior: SnackBarBehavior.floating,
+                        backgroundColor:
+                            _isDarkMode ? Colors.grey[700] : AppColors.error,
+                      ),
+                    );
+                  }
+                },
+                builder: (context, state) {
+                  if (state is CustomerDashboardLoading) {
+                    return _buildLoadingState();
+                  }
+
+                  if (state is RestaurantsLoaded) {
+                    return _buildDashboardContent(state.restaurants);
+                  }
+
+                  return _buildErrorState('Unable to load restaurants');
+                },
+              ),
+            ),
+            bottomNavigationBar: _buildBottomNavigationBar(),
+          ),
+        ));
   }
 
   Widget _buildFilterOptions() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 8),
+        Padding(
+          padding:
+              const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 8),
           child: Text(
             "Find Your Perfect Restaurant",
-            style: AppTextStyles.h4,
+            style: AppTextStyles.h4.copyWith(
+              color: _themeColors.textPrimary,
+            ),
           ),
         ),
         SizedBox(
@@ -168,6 +334,16 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
                   // Handle rating filter tap
                 },
               ),
+              _buildFilterCard(
+                title: "Favorites Only",
+                icon: Icons.favorite,
+                options: ["Show All", "Favorites Only"],
+                onTap: () {
+                  setState(() {
+                    _showFavoritesOnly = !_showFavoritesOnly;
+                  });
+                },
+              ),
 
               // Features filter
               _buildFilterCard(
@@ -205,15 +381,12 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              AppColors.primary.withOpacity(0.9),
-              AppColors.primary.withOpacity(0.7),
-            ],
+            colors: _themeColors.filterGradient,
           ),
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: _themeColors.shadowColor,
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -224,19 +397,19 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title and icon
+              // Title and icon (with theme-aware colors)
               Row(
                 children: [
                   Icon(
                     icon,
-                    color: Colors.white,
+                    color: _isDarkMode ? Colors.white70 : Colors.white,
                     size: 16,
                   ),
                   const SizedBox(width: 6),
                   Text(
                     title,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: _isDarkMode ? Colors.white70 : Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
@@ -245,7 +418,7 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
               ),
               const SizedBox(height: 8),
 
-              // Top options with pills
+              // Option pills with theme-aware styling
               Wrap(
                 spacing: 4,
                 runSpacing: 4,
@@ -254,13 +427,15 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
                     padding:
                         const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.25),
+                      color: _isDarkMode
+                          ? Colors.white.withOpacity(0.1)
+                          : Colors.white.withOpacity(0.25),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       option,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: _isDarkMode ? Colors.white70 : Colors.white,
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
                       ),
@@ -276,7 +451,9 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
                 child: Text(
                   "View More",
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
+                    color: _isDarkMode
+                        ? Colors.white54
+                        : Colors.white.withOpacity(0.9),
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     decoration: TextDecoration.underline,
@@ -294,10 +471,10 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
     return Container(
       padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _themeColors.headerBackground,
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.05),
+            color: _isDarkMode ? Colors.black38 : Colors.grey.withOpacity(0.05),
             spreadRadius: 1,
             blurRadius: 5,
             offset: const Offset(0, 3),
@@ -313,18 +490,20 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
               Text(
                 "Hi, ${widget.userName} 👋",
                 style: AppTextStyles.bodyLarge.copyWith(
-                  color: AppColors.textSecondary,
+                  color: _themeColors.textSecondary,
                 ),
               ),
               const SizedBox(height: 4),
               RichText(
-                text: const TextSpan(
+                text: TextSpan(
                   children: [
                     TextSpan(
                       text: "Hungry Now? ",
-                      style: AppTextStyles.h3,
+                      style: AppTextStyles.h3.copyWith(
+                        color: _themeColors.textPrimary,
+                      ),
                     ),
-                    TextSpan(
+                    const TextSpan(
                       text: "🔥",
                       style: TextStyle(fontSize: 24),
                     ),
@@ -337,17 +516,17 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: AppColors.primary.withOpacity(0.2),
+                color: _themeColors.borderColor,
                 width: 2,
               ),
             ),
             child: CircleAvatar(
-              backgroundColor: Colors.white,
+              backgroundColor: _isDarkMode ? Colors.grey[800] : Colors.white,
               radius: 24,
               child: IconButton(
-                icon: const Icon(
+                icon: Icon(
                   Icons.person_outline,
-                  color: AppColors.primary,
+                  color: _isDarkMode ? Colors.white70 : AppColors.primary,
                   size: 24,
                 ),
                 onPressed: _navigateToProfile,
@@ -364,11 +543,15 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: TextField(
         controller: _searchController,
-        style: AppTextStyles.inputText,
+        style: AppTextStyles.inputText.copyWith(
+          color: _themeColors.textPrimary,
+        ),
         decoration: InputDecoration(
           hintText: 'Search for food, restaurants...',
-          hintStyle: AppTextStyles.inputHint,
-          prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
+          hintStyle: AppTextStyles.inputHint.copyWith(
+            color: _themeColors.searchBarHint,
+          ),
+          prefixIcon: Icon(Icons.search, color: _themeColors.searchBarHint),
           suffixIcon: Container(
             margin: const EdgeInsets.all(5),
             decoration: BoxDecoration(
@@ -396,81 +579,13 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
             ),
           ),
           filled: true,
-          fillColor: Colors.white,
+          fillColor: _themeColors.searchBarBackground,
           contentPadding:
               const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         ),
       ),
     );
   }
-
-  // Widget _buildFoodCategories() {
-  //   final categories = [
-  //     {"icon": Icons.lunch_dining, "name": "Burger"},
-  //     {"icon": Icons.local_pizza, "name": "Pizza"},
-  //     {"icon": Icons.tapas, "name": "Spaghetti"},
-  //     {"icon": Icons.rice_bowl, "name": "Fried Rice"},
-  //     {"icon": Icons.breakfast_dining, "name": "Tacos"},
-  //     {"icon": Icons.coffee, "name": "Coffee"},
-  //   ];
-
-  //   return Column(
-  //     crossAxisAlignment: CrossAxisAlignment.start,
-  //     children: [
-  //       const Padding(
-  //         padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 8),
-  //         child: Text(
-  //           "Categories",
-  //           style: AppTextStyles.h4,
-  //         ),
-  //       ),
-  //       SizedBox(
-  //         height: 100,
-  //         child: ListView.builder(
-  //           scrollDirection: Axis.horizontal,
-  //           padding: const EdgeInsets.symmetric(horizontal: 8),
-  //           itemCount: categories.length,
-  //           itemBuilder: (context, index) {
-  //             final category = categories[index];
-  //             return Container(
-  //               width: 80,
-  //               margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-  //               child: Column(
-  //                 mainAxisAlignment: MainAxisAlignment.center,
-  //                 children: [
-  //                   Container(
-  //                     height: 56,
-  //                     width: 56,
-  //                     decoration: BoxDecoration(
-  //                       color: AppColors.primary.withOpacity(0.1),
-  //                       borderRadius: BorderRadius.circular(16),
-  //                     ),
-  //                     child: Icon(
-  //                       category['icon'] as IconData,
-  //                       color: AppColors.primary,
-  //                       size: 28,
-  //                     ),
-  //                   ),
-  //                   const SizedBox(height: 8),
-  //                   Text(
-  //                     category['name'] as String,
-  //                     style: AppTextStyles.bodySmall.copyWith(
-  //                       fontWeight: FontWeight.w500,
-  //                       color: AppColors.textPrimary,
-  //                     ),
-  //                     textAlign: TextAlign.center,
-  //                     maxLines: 1,
-  //                     overflow: TextOverflow.ellipsis,
-  //                   ),
-  //                 ],
-  //               ),
-  //             );
-  //           },
-  //         ),
-  //       ),
-  //     ],
-  //   );
-  // }
 
   Widget _buildPromotionBanner() {
     return BlocBuilder<CustomerDashboardBloc, CustomerDashboardState>(
@@ -514,9 +629,11 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     "Featured Restaurants",
-                    style: AppTextStyles.h4,
+                    style: AppTextStyles.h4.copyWith(
+                      color: _themeColors.textPrimary,
+                    ),
                   ),
                   TextButton(
                     onPressed: () {}, // Navigate to full restaurant list
@@ -545,7 +662,6 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
     );
   }
 
-// 🏆 Restaurant data helper
   Map<String, dynamic> _buildFeaturedItem(
       RestaurantEntity restaurant, bool isPremium) {
     return {
@@ -562,169 +678,195 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
     };
   }
 
-// 🎨 Instagram-style Restaurant Post
   Widget _buildInstagramStylePost(Map<String, dynamic> item) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Header (Profile avatar & name)
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(50),
-                child: Image.network(
-                  item['logo'],
-                  width: 40,
-                  height: 40,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.restaurant, color: Colors.white),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item['title'],
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    item['location'],
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.more_vert, color: Colors.black54),
-                onPressed: () {},
-              ),
-            ],
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      decoration: BoxDecoration(
+        color: _themeColors.cardColor,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: _themeColors.shadowColor,
+            spreadRadius: 0,
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
-        ),
-
-        // Restaurant Image
-        ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: Image.network(
-            item['image'],
-            width: double.infinity,
-            height: 250,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                height: 250,
-                color: Colors.grey[300],
-                child:
-                    const Icon(Icons.restaurant, size: 50, color: Colors.white),
-              );
-            },
-          ),
-        ),
-
-        // Action Buttons (Like, Comment, Share, Save)
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.favorite_border, size: 28),
-                    onPressed: () {},
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.chat_bubble_outline, size: 28),
-                    onPressed: () {},
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.send, size: 28),
-                    onPressed: () {},
-                  ),
-                ],
-              ),
-              IconButton(
-                icon: const Icon(Icons.bookmark_border, size: 28),
-                onPressed: () {},
-              ),
-            ],
-          ),
-        ),
-
-        // Likes Count
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(
-            "Liked by foodie_lover and others",
-            style:
-                AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w600),
-          ),
-        ),
-
-        // Restaurant Caption
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          child: RichText(
-            text: TextSpan(
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header (Profile avatar & name)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Row(
               children: [
-                TextSpan(
-                  text: item['title'],
-                  style: AppTextStyles.bodySmall.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(50),
+                  child: Image.network(
+                    item['logo'],
+                    width: 40,
+                    height: 40,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          shape: BoxShape.circle,
+                        ),
+                        child:
+                            const Icon(Icons.restaurant, color: Colors.white),
+                      );
+                    },
                   ),
                 ),
-                TextSpan(
-                  text: "  ${item['description']}",
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item['title'],
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: _themeColors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      item['location'],
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: _themeColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: Icon(Icons.more_vert, color: _themeColors.iconPrimary),
+                  onPressed: () {},
+                ),
+              ],
+            ),
+          ),
+
+          // Restaurant Image
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.network(
+              item['image'],
+              width: double.infinity,
+              height: 250,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  height: 250,
+                  color: Colors.grey[300],
+                  child: const Icon(Icons.restaurant,
+                      size: 50, color: Colors.white),
+                );
+              },
+            ),
+          ),
+
+          // Action Buttons (Like, Comment, Share, Save)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.favorite_border,
+                          size: 28, color: _themeColors.iconPrimary),
+                      onPressed: () {},
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.chat_bubble_outline,
+                          size: 28, color: _themeColors.iconPrimary),
+                      onPressed: () {},
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.send,
+                          size: 28, color: _themeColors.iconPrimary),
+                      onPressed: () {},
+                    ),
+                  ],
+                ),
+                IconButton(
+                  icon: Icon(Icons.bookmark_border,
+                      size: 28, color: _themeColors.iconPrimary),
+                  onPressed: () {},
+                ),
+              ],
+            ),
+          ),
+
+          // Likes Count
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              "Liked by foodie_lover and others",
+              style: AppTextStyles.bodySmall.copyWith(
+                fontWeight: FontWeight.w600,
+                color: _themeColors.textPrimary,
+              ),
+            ),
+          ),
+
+          // Restaurant Caption
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: item['title'],
+                    style: AppTextStyles.bodySmall.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: _themeColors.textPrimary,
+                    ),
+                  ),
+                  TextSpan(
+                    text: "  ${item['description']}",
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: _themeColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Rating and Timestamp
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Row(
+              children: [
+                const Icon(Icons.star, color: Colors.amber, size: 16),
+                const SizedBox(width: 4),
+                Text(
+                  "${item['rating']}",
                   style: AppTextStyles.bodySmall.copyWith(
-                    color: Colors.black87,
+                    fontWeight: FontWeight.w600,
+                    color: _themeColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  "2 hours ago",
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: _themeColors.textSecondary,
                   ),
                 ),
               ],
             ),
           ),
-        ),
 
-        // Rating and Timestamp
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          child: Row(
-            children: [
-              const Icon(Icons.star, color: Colors.amber, size: 16),
-              const SizedBox(width: 4),
-              Text(
-                "${item['rating']}",
-                style: AppTextStyles.bodySmall
-                    .copyWith(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                "2 hours ago",
-                style: AppTextStyles.bodySmall.copyWith(color: Colors.black45),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 10), // Space between posts
-      ],
+          const SizedBox(height: 10),
+        ],
+      ),
     );
   }
 
@@ -805,11 +947,14 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 8),
+        Padding(
+          padding:
+              const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 8),
           child: Text(
             "Explore by Cuisine",
-            style: AppTextStyles.h4,
+            style: AppTextStyles.h4.copyWith(
+              color: _themeColors.textPrimary,
+            ),
           ),
         ),
         SizedBox(
@@ -851,11 +996,11 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
         width: 160,
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: _themeColors.cardColor,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: _themeColors.shadowColor,
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -966,7 +1111,7 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
                     description,
                     style: TextStyle(
                       fontSize: 11,
-                      color: AppColors.textSecondary.withOpacity(0.8),
+                      color: _themeColors.textSecondary,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -1024,11 +1169,11 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _themeColors.cardColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(),
+            color: _themeColors.shadowColor,
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -1054,7 +1199,7 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1063,14 +1208,14 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+                        color: _themeColors.textPrimary,
                       ),
                     ),
                     Text(
                       "Order directly from your table",
                       style: TextStyle(
                         fontSize: 14,
-                        color: AppColors.textSecondary,
+                        color: _themeColors.textSecondary,
                       ),
                     ),
                   ],
@@ -1103,12 +1248,12 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
           const SizedBox(height: 16),
 
           // Recent/Nearby restaurants for table ordering
-          const Text(
+          Text(
             "Quick Access",
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
+              color: _themeColors.textPrimary,
             ),
           ),
 
@@ -1155,6 +1300,9 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
     required IconData icon,
     required Color color,
   }) {
+    final optionBgColor = _themeColors.getVariant(color);
+    final borderColor = _themeColors.getBorderVariant(color);
+
     return Expanded(
       child: GestureDetector(
         onTap: () {
@@ -1171,10 +1319,8 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
                   context,
                   MaterialPageRoute(
                     builder: (context) => QRCodeScannerView(
-                      restaurantId:
-                          restaurantId!, // Use ! to assert non-nullability
+                      restaurantId: restaurantId!,
                       onTableVerified: (tableId) {
-                        // Handle table verification success
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text("Table $tableId verified!"),
@@ -1206,12 +1352,10 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Color.fromRGBO(color.red, color.green, color.blue,
-                0.1), // Updated from withOpacity
+            color: optionBgColor,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: Color.fromRGBO(color.red, color.green, color.blue,
-                  0.3), // Updated from withOpacity
+              color: borderColor,
               width: 1,
             ),
           ),
@@ -1221,8 +1365,8 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Color.fromRGBO(color.red, color.green, color.blue,
-                      0.2), // Updated from withOpacity
+                  color:
+                      Color.fromRGBO(color.red, color.green, color.blue, 0.2),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -1247,9 +1391,9 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
 
               Text(
                 description,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
-                  color: AppColors.textSecondary,
+                  color: _themeColors.textSecondary,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -1277,7 +1421,7 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
           ),
         ),
       ),
-    ); // Fixed the extra parenthesis here
+    );
   }
 
   Widget _buildQuickAccessRestaurant({
@@ -1290,7 +1434,7 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
       width: 200,
       margin: const EdgeInsets.only(right: 12),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: _themeColors.containerLight,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -1319,10 +1463,10 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
                 children: [
                   Text(
                     name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+                      color: _themeColors.textPrimary,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -1330,9 +1474,9 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
                   const SizedBox(height: 2),
                   Text(
                     address,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
-                      color: AppColors.textSecondary,
+                      color: _themeColors.textSecondary,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -1378,7 +1522,7 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
           Text(
             "Loading restaurants...",
             style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.textSecondary,
+              color: _themeColors.textSecondary,
             ),
           ),
         ],
@@ -1400,7 +1544,7 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
           Text(
             message,
             style: AppTextStyles.h4.copyWith(
-              color: AppColors.textPrimary,
+              color: _themeColors.textPrimary,
             ),
             textAlign: TextAlign.center,
           ),
@@ -1408,7 +1552,7 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
           Text(
             "We couldn't load the restaurants. Please try again.",
             style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.textSecondary,
+              color: _themeColors.textSecondary,
             ),
             textAlign: TextAlign.center,
           ),
@@ -1439,10 +1583,10 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
   Widget _buildBottomNavigationBar() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _themeColors.bottomNavBackground,
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: _themeColors.shadowColor,
             spreadRadius: 0,
             blurRadius: 10,
             offset: const Offset(0, -3),
@@ -1451,9 +1595,9 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
       ),
       child: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
+        backgroundColor: _themeColors.bottomNavBackground,
         selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.textSecondary,
+        unselectedItemColor: _themeColors.textSecondary,
         selectedLabelStyle: AppTextStyles.bodySmall.copyWith(
           fontWeight: FontWeight.w600,
         ),
@@ -1554,7 +1698,7 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
         break;
 
       case 2: // Orders
-        // _navigateToOrders();
+        _navigateToOrders();
         break;
 
       case 3: // Notifications
@@ -1562,30 +1706,29 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
         break;
 
       case 4: // Cart
-        _navigateToSensorTest();
+        // _navigateToSensorTest();
         break;
     }
   }
 
   void _navigateToProfile() {
-    // Import the CustomerProfileBloc if it's not already imported
     final customerProfileBloc = GetIt.instance<CustomerProfileBloc>();
 
-    // Trigger fetch profile event
     customerProfileBloc.add(FetchCustomerProfileEvent());
 
-    // Navigate to profile page
     Navigator.of(context)
         .push(
       MaterialPageRoute(
         builder: (context) => BlocProvider.value(
           value: customerProfileBloc,
-          child: const CustomerProfileView(),
+          child: CustomerProfileView(
+            onMotionSensorToggle: _toggleMotionSensor,
+            isSensorEnabled: _isSensorEnabled,
+          ),
         ),
       ),
     )
         .then((_) {
-      // When returning from profile, reset the selected index to 0 (Restaurants)
       if (mounted) {
         setState(() {
           _selectedNavIndex = 0;
@@ -1593,31 +1736,6 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
       }
     });
   }
-
-// void _navigateToOrders() {
-//   // Get the order history bloc
-//   final customerOrderBloc = GetIt.instance<CustomerOrderBloc>();
-
-//   // Fetch order history data
-//   customerOrderBloc.add(FetchOrderHistoryEvent());
-
-//   // Navigate to orders page
-//   Navigator.of(context).push(
-//     MaterialPageRoute(
-//       builder: (context) => BlocProvider.value(
-//         value: customerOrderBloc,
-//         child: const CustomerOrderHistoryView(),
-//       ),
-//     ),
-//   ).then((_) {
-//     // When returning from orders, reset the selected index to 0 (Restaurants)
-//     if (mounted) {
-//       setState(() {
-//         _selectedNavIndex = 0;
-//       });
-//     }
-//   });
-// }
 
   void _navigateToNotifications() {
     // Navigate to notifications page
@@ -1634,14 +1752,6 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
         });
       }
     });
-  }
-
-  void _navigateToSensorTest() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const ProximitySensorTestScreen(),
-      ),
-    );
   }
 
   Widget _buildPopularDishes() {
@@ -1726,9 +1836,11 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
             children: [
               Row(
                 children: [
-                  const Text(
+                  Text(
                     "Most Popular Dishes",
-                    style: AppTextStyles.h4,
+                    style: AppTextStyles.h4.copyWith(
+                      color: _themeColors.textPrimary,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Container(
@@ -1817,18 +1929,18 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
         width: 220,
         margin: const EdgeInsets.only(right: 16, bottom: 12, top: 4),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: _themeColors.cardColor,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: _themeColors.shadowColor,
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min, // Use min to avoid taking extra space
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Dish image with rating and cuisine
@@ -1840,8 +1952,7 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
                       const BorderRadius.vertical(top: Radius.circular(16)),
                   child: Image.network(
                     image,
-                    height:
-                        150, // Slightly reduced from 160 to allow more space for text
+                    height: 150,
                     width: double.infinity,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) {
@@ -1952,18 +2063,17 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
 
             // Dish information - Use padding to control space more precisely
             Padding(
-              padding:
-                  const EdgeInsets.fromLTRB(12, 10, 12, 10), // Reduced padding
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
+                      color: _themeColors.textPrimary,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -1993,36 +2103,35 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
                     ],
                   ),
 
-                  const SizedBox(height: 5), // Reduced spacing
+                  const SizedBox(height: 5),
 
-                  // Preparation time and recommended tag in a more compact layout
+                  // Preparation time and recommended tag
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.timer_outlined,
                         size: 14,
-                        color: Colors.grey,
+                        color: _themeColors.textSecondary,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         preparationTime,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey,
+                          color: _themeColors.textSecondary,
                         ),
                       ),
 
                       // Show the recommended tag only if space permits
                       if (isRecommended) ...[
-                        const SizedBox(width: 8), // Reduced spacing
+                        const SizedBox(width: 8),
                         Flexible(
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 4, vertical: 2), // Smaller padding
+                                horizontal: 4, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.green.withOpacity(0.1),
-                              borderRadius:
-                                  BorderRadius.circular(8), // Smaller radius
+                              borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: Colors.green,
                                 width: 1,
@@ -2031,7 +2140,7 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
                             child: const Text(
                               "Recommended",
                               style: TextStyle(
-                                fontSize: 9, // Smaller text
+                                fontSize: 9,
                                 color: Colors.green,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -2044,7 +2153,7 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
                     ],
                   ),
 
-                  const SizedBox(height: 8), // Reduced spacing
+                  const SizedBox(height: 8),
 
                   // Price and order button row
                   Row(
@@ -2056,36 +2165,37 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
                           children: [
                             TextSpan(
                               text: price.split('.')[0],
-                              style: const TextStyle(
-                                fontSize: 15, // Reduced size
+                              style: TextStyle(
+                                fontSize: 15,
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
+                                color: _themeColors.textPrimary,
                               ),
                             ),
                             if (price.contains('.'))
                               TextSpan(
                                 text: ".${price.split('.')[1]}",
                                 style: TextStyle(
-                                  fontSize: 13, // Reduced size
+                                  fontSize: 13,
                                   fontWeight: FontWeight.w500,
-                                  color: AppColors.textPrimary.withOpacity(0.7),
+                                  color: _isDarkMode
+                                      ? Colors.white.withOpacity(0.7)
+                                      : AppColors.textPrimary.withOpacity(0.7),
                                 ),
                               ),
                           ],
                         ),
                       ),
 
-                      // Add to cart button - more compact
+                      // Add to cart button
                       Material(
-                        borderRadius:
-                            BorderRadius.circular(10), // Smaller radius
+                        borderRadius: BorderRadius.circular(10),
                         color: AppColors.primary,
                         child: InkWell(
                           onTap: onAddToCart,
                           borderRadius: BorderRadius.circular(10),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 5), // Smaller padding
+                                horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(10),
                             ),
@@ -2095,14 +2205,14 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
                                 Icon(
                                   Icons.add_shopping_cart,
                                   color: Colors.white,
-                                  size: 12, // Smaller icon
+                                  size: 12,
                                 ),
                                 SizedBox(width: 4),
                                 Text(
                                   "Add",
                                   style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 11, // Smaller text
+                                    fontSize: 11,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -2122,9 +2232,75 @@ class CustomerDashboardViewState extends State<CustomerDashboardView>
     );
   }
 
+  void _navigateToOrders() {
+    final foodOrderBloc = GetIt.instance<FoodOrderBloc>();
+
+    // First, load the orders
+    foodOrderBloc.add(const FetchUserOrdersEvent());
+
+    // Use stream to wait for orders to be loaded
+    foodOrderBloc.stream
+        .firstWhere((state) => state is FoodOrdersLoaded)
+        .then((state) {
+      if (mounted) {
+        if (state is FoodOrdersLoaded && state.orders.isNotEmpty) {
+          // Sort orders by date (most recent first)
+          final sortedOrders = List<FoodOrderEntity>.from(state.orders)
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+          // Get the most recent order
+          final mostRecentOrder = sortedOrders.first;
+
+          // Add debug prints for order ID
+          debugPrint("NavigateToOrders - Order ID: ${mostRecentOrder.id}");
+          debugPrint(
+              "NavigateToOrders - Order ID Length: ${mostRecentOrder.id.length}");
+          debugPrint(
+              "NavigateToOrders - Order Status: ${mostRecentOrder.status}");
+
+          // Navigate to the order tracking view
+          Navigator.of(context)
+              .push(
+            MaterialPageRoute(
+              builder: (context) => BlocProvider.value(
+                value: foodOrderBloc,
+                child: OrderTrackingView(orderId: mostRecentOrder.id),
+              ),
+            ),
+          )
+              .then((_) {
+            // Reset selected index when returning
+            if (mounted) {
+              setState(() {
+                _selectedNavIndex = 0;
+              });
+            }
+          });
+        } else {
+          // Show a message if no orders are found
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No recent orders found'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    });
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
+
+    // Instead of directly stopping and disposing, we'll use a more controlled approach
+    try {
+      // Remove only the specific listener
+      _motionSensorService.removeShakeListener(_onShakeDetected);
+    } catch (e) {
+      print('Error during motion sensor cleanup: $e');
+    }
+
     super.dispose();
   }
 }
