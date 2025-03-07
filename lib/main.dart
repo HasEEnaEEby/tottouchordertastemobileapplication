@@ -114,6 +114,8 @@ class ErrorApp extends StatelessWidget {
   }
 }
 
+
+
 class ProximityAwareBlocObserver extends BlocObserver {
   @override
   void onEvent(Bloc bloc, Object? event) {
