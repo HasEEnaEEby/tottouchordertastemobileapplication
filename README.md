@@ -1,25 +1,89 @@
-# tottouchordertastemobileapplication
+# Touch Order taste 
+TOT (Touch, Order, Taste) is a modern restaurant ordering application designed to enhance the dining experience by allowing customers to seamlessly browse menus, place orders, and track their food preparation in real-time. The app eliminates the need for waiters, providing a smooth and interactive ordering process for restaurants and customers alike.
 
-A new Flutter project.
 
-## Getting Started
+Customer Mode: Log in for a personalized ordering experience with recommendations.
 
-This project is a starting point for a Flutter application.
+Restaurant Admin Mode: Manage menu items, update order statuses, and oversee restaurant operations.
 
-A few resources to get you started if this is your first Flutter project:
+System Admin Mode: Approve/reject restaurant registrations, monitor feedback, and manage platform performance.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/c![simulator_screenshot_D64409F5-BC0C-43A4-A3EA-29E95FB123E9](https://github.com/user-attachments/assets/c51fa34b-3521-43d7-a898-cbba79f79e08)
-odelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Real-time Order Tracking: Users can see live order updates such as Preparing, Cooking, and Ready to Serve.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
-![simulator_screenshot_60F59EDD-41F0-4F01-97BE-64A345F2DD29](https://github.com/user-attachments/assets/a7e42cd5-1c87-4052-a34e-79d3ba71b397)
-![simulator_screenshot_BBA9325A-D8DF-4088-8171-C69CC4B21862](https://github.com/user-attachments/assets/26d19fe5-9060-4b3e-b483-8b05cb149fef)
-![simulator_screenshot_B0FD671A-B43A-4243-8CB1-26162903C66C](https://github.com/user-attachments/assets/72e9610a-c09e-41fc-8874-417be617a16b)
-![simulator_screenshot_97B97377-B1E2-4E33-9EF5-C91998A9349D](https://github.com/user-attachments/assets/5fd38f0f-f33e-4888-834f-7819db5a1a56)
-![simulator_screenshot_EC8145F7-5619-4449-BCE1-3D613E6A2906](https://github.com/user-attachments/assets/8cd38fff-07a1-4737-8486-c61250fbdce8)
-![simulator_screenshot_308D0B03-B305-453A-956C-6DF422D6F7C9](https://github.com/user-attachments/assets/390228c8-7dcc-4cbe-b042-98a0fdec21d2)
-![simulator_screenshot_8EBB6A47-FF7A-47F4-BFFD-E03CC13CEFCB](https://github.com/user-attachments/assets/a573e584-0eb6-48b4-8c29-1df732d3609e)
-![simulator_screenshot_05FED4CA-0A60-4E56-8F5B-A7CD03CFB028](https://github.com/user-attachments/assets/a367e1c9-d46a-47a3-81da-25784a81cb10)
+Intuitive UI & Animations: Engaging and responsive design with smooth animations for an immersive experience.
+
+Table-based Ordering: Customers enter a table number to receive their order.
+
+# 🛠️ Tech Stack
+
+Frontend: Flutter (Dart) for a seamless cross-platform mobile experience.
+
+Backend: Node.js with Express.js (API development)
+
+Database: MongoDB (Cloud-based storage for restaurant, order, and user data)
+
+Authentication: JWT for secure user login & role management
+
+State Management: Provider / Riverpod (Choose based on Flutter implementation)
+
+
+# 📱 Screens
+Splash Screen - Animated introduction with logo and video fade-in
+
+Onboarding Screens - Guide new users on how to use the app
+
+Home Screen - List of restaurants and menu navigation
+
+Menu Screen - View dishes, customize orders, and add items to the cart
+
+Order Screen - Track the status of placed orders in real-time
+
+Admin Panel - Manage restaurants, orders, and approvals
+
+Profile & Settings - User preferences, language selection, and account management
+
+# Prerequisites
+
+Flutter SDK (Latest stable version)
+
+Dart SDK
+
+Node.js & MongoDB (For backend setup)
+
+# Clone the repository
+git clone https://github.com/yourusername/tot-app.git
+cd tot-app
+
+Install dependencies
+flutter pub get 
+
+Run the application
+flutter run
+
+![simulator_screenshot_749A3BDE-EFD3-4978-A1E2-F46E97A5994F](https://github.com/user-attachments/assets/32c85970-a07d-4dd1-b3c2-4205490c3e41)
+
+
+![simulator_screenshot_68CAC825-0C64-479A-8F60-AA6DDDEA2C5F](https://github.com/user-attachments/assets/3dde2ee0-947d-442b-92f7-50e9ba0f9128)
+
+![simulator_screenshot_D32AB1CE-842F-41A8-A5C1-C5F4BEE739D8](https://github.com/user-attachments/assets/f299c276-42e9-45f5-9103-efe56631cc6b)
+
+![simulator_screenshot_F294075D-DB99-4B6B-AB40-A43A56BCDCBA](https://github.com/user-attachments/assets/96f768c7-4d24-4ac8-b907-6331b61172a0)
+
+![simulator_screenshot_F15BF875-AB03-4F62-871B-52CAC8FDDAAF](https://github.com/user-attachments/assets/494e8855-b3b3-40b6-a10b-cc67444c3e34)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
