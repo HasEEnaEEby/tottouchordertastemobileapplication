@@ -61,27 +61,15 @@ Run the application
 flutter run
 
 ![simulator_screenshot_749A3BDE-EFD3-4978-A1E2-F46E97A5994F](https://github.com/user-attachments/assets/32c85970-a07d-4dd1-b3c2-4205490c3e41)
-
-
 ![simulator_screenshot_68CAC825-0C64-479A-8F60-AA6DDDEA2C5F](https://github.com/user-attachments/assets/3dde2ee0-947d-442b-92f7-50e9ba0f9128)
-
 ![simulator_screenshot_D32AB1CE-842F-41A8-A5C1-C5F4BEE739D8](https://github.com/user-attachments/assets/f299c276-42e9-45f5-9103-efe56631cc6b)
-
 ![simulator_screenshot_F294075D-DB99-4B6B-AB40-A43A56BCDCBA](https://github.com/user-attachments/assets/96f768c7-4d24-4ac8-b907-6331b61172a0)
-
 ![simulator_screenshot_F15BF875-AB03-4F62-871B-52CAC8FDDAAF](https://github.com/user-attachments/assets/494e8855-b3b3-40b6-a10b-cc67444c3e34)
-
-
-
-
-
-
-
-
-
-
-
-
+![simulator_screenshot_40F9E5B3-F709-4457-BC31-197F05903362](https://github.com/user-attachments/assets/1a8c5474-10a2-4d5c-abce-95d9015244e3)
+![simulator_screenshot_F30649BF-918C-453F-AE19-208F0176ABCC](https://github.com/user-attachments/assets/012ca717-2dcd-48be-a61a-ba57004ce9ca)
+![simulator_screenshot_DB520F18-893A-4F01-B0AC-951F63959C11](https://github.com/user-attachments/assets/63881ae2-c9e9-40cc-8f2c-569af864a73f)
+![simulator_screenshot_51D4E254-DEF9-42AE-AA7D-C4F5C3C26050](https://github.com/user-attachments/assets/1250959b-f279-4128-be64-83985a2f5234)
+![simulator_screenshot_A71934FB-4C6F-4E03-95A3-54C81AB24668](https://github.com/user-attachments/assets/8033a479-955a-4138-b328-d611eb044d25)
 
 
 
