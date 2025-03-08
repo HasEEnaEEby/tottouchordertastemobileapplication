@@ -67,10 +67,19 @@ flutter run
 ![simulator_screenshot_F15BF875-AB03-4F62-871B-52CAC8FDDAAF](https://github.com/user-attachments/assets/494e8855-b3b3-40b6-a10b-cc67444c3e34)
 ![simulator_screenshot_40F9E5B3-F709-4457-BC31-197F05903362](https://github.com/user-attachments/assets/1a8c5474-10a2-4d5c-abce-95d9015244e3)
 ![simulator_screenshot_F30649BF-918C-453F-AE19-208F0176ABCC](https://github.com/user-attachments/assets/012ca717-2dcd-48be-a61a-ba57004ce9ca)
+![simulator_screenshot_9B2C4537-BCB0-4B04-B46A-56BFBA91F5B9](https://github.com/user-attachments/assets/6f1ba28e-3521-4986-95cf-2815a8697080)
 ![simulator_screenshot_DB520F18-893A-4F01-B0AC-951F63959C11](https://github.com/user-attachments/assets/63881ae2-c9e9-40cc-8f2c-569af864a73f)
 ![simulator_screenshot_51D4E254-DEF9-42AE-AA7D-C4F5C3C26050](https://github.com/user-attachments/assets/1250959b-f279-4128-be64-83985a2f5234)
 ![simulator_screenshot_A71934FB-4C6F-4E03-95A3-54C81AB24668](https://github.com/user-attachments/assets/8033a479-955a-4138-b328-d611eb044d25)
-
+![simulator_screenshot_87AEBAE2-DC28-46E7-B784-871A310E56B3](https://github.com/user-attachments/assets/1439934c-97d6-4869-bd20-8952761b64ff)
+![simulator_screenshot_041A36DF-D593-4ACB-B472-9178EB61E8AD](https://github.com/user-attachments/assets/f3324e8b-56bc-43b0-9c37-26426f639b08)
+![simulator_screenshot_40137180-869C-4F7B-AE85-5191890ECB37](https://github.com/user-attachments/assets/f79a3fca-a6b1-475a-886c-fa789a485448)
+![simulator_screenshot_DF0A85B4-B894-4E6F-A678-151258CF26C4](https://github.com/user-attachments/assets/73dc5114-84eb-4d91-8536-f1be326b8aeb)
+![simulator_screenshot_A9FA7E31-75DF-4598-9FDB-964B2E7ABEA7](https://github.com/user-attachments/assets/0b46a89b-910e-435e-8b37-016fbda701cc)
+![simulator_screenshot_417A17B6-8782-4F3B-A149-D990FDD12884](https://github.com/user-attachments/assets/53ac3ba4-2ec9-4903-a319-8ac20582d496)
+![simulator_screenshot_E11D6772-83A5-49F7-A9D5-E76292794961](https://github.com/user-attachments/assets/ba688b98-b67c-4bf3-8298-6b923c348ef)
+![simulator_screenshot_990A8778-F821-447C-97E4-0DEDA42289CE](https://github.com/user-attachments/assets/a39c48c9-c75b-4f00-aa4a-fd783d169344)
+2)
 
 
 
